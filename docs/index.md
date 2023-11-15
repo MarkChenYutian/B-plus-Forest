@@ -7,17 +7,15 @@ title: 15418 Final Project
 
 {% include NotImplemented.html %}
 
-We would like to implement a distributed B+ tree using 2 different methods:
-
-1. Implementing parallel B+ Tree using lock-free data structure (using C++ Atomic or fine-grained lock)
-2. Implementing parallel B+ Tree using OpenMPI. Specifically, for a collection of processes, we want each process to maintain a local B+ Tree and communicate the updates with each other based on lazy update. (Somehow similar to the Cache coherence system, but maintain the coherence of parallel B+ tree across processes)
+We would like to implement parallel and distributed B+ tree using 2 different methods:
+1. Implementing parallel B+ Tree using fine-grained locking and lock-free data structure (using C++ Atomic)
+2. Implementing a parallel N-body simulator supports efficient particle retrieval, insertion, and removal based on B+ tree data structure and OpenMPI. Specifically, for a collection of processes, we want each process to maintain a local B+ Tree and communicate the updates with each other based on lazy update. (Somehow similar to the Cache coherence system, but maintain the coherence of parallel B+ tree across processes). 
 
 ## Background
 
 ### B+ Tree
 
-{% include NotImplemented.html %}
-introduce B+ Tree and its application in database management system?
+A B+ tree is a self-balancing tree data structure that maintains sorted data and allows searches, insertions, deletions, and sequential access in logarithmic time. Binary search tree is a specialization of B+ Tree. The B+ tree structure is well-suited for relational database management systems due to its balanced nature and ability to provide efficient range queries when it is used as index. In DBMS context, each internal node contains key ranges, which point to subtrees that contains data; each leaf node contains key/value pairs.
 
 
 ### Lock-free Data Structure
@@ -30,7 +28,7 @@ OpenMPI is a key implementation of the MPI standard, vital in high-performance c
 
 ## Challenge
 
-1. B+ tree hand-over-hand 
+1. Implementing hand-over-hand locking on B+ tree is hard by itself as the protocol allows multiple threads to access/modify B+ Tree at the same time. When navigating down the tree, we need to get lock for parent, and get lock for child, and release lock for parent if “safe”, which means that no split or merge when updated (i.e. not full on insertion, more than half-full on deletion).
 2. Lock free programming is very hard to design and implement correctly, even with the help of `std::atomic<T>`.
 3. Though OpenMPI allows us to scale up the parallelism on various hardware foundations (NUMA or single multi-core processor), it also provides a non-negligible overhead on the overall performance of program.
 
@@ -42,15 +40,19 @@ OpenMPI is a key implementation of the MPI standard, vital in high-performance c
     
     For the remaining parts of this project, we can conduct experiment on GHC cluster machines.
     
-2. Papers
-
-{% include NotImplemented.html %}
+2. Papers on B+ tree concurrency
+    
+    [1] Bayer, R., Schkolnick, M. Concurrency of operations on *B*-trees. *Acta Informatica* **9**, 1–21 (1977). https://doi.org/10.1007/BF00263762
+    
+    [2] Sewall, J., Chhugani, J., Kim, C., Satish, N., & Dubey, P. (2011). PALM: Parallel Architecture-Friendly Latch-Free Modifications to B+ Trees on Many-Core Processors. Proceedings of the VLDB Endowment, 4(11), 795–806. https://doi.org/10.14778/3402707.3402719
+    
+    [3] Srinivasan, V., Carey, M.J. Performance of B+ tree concurrency control algorithms. *VLDB Journal* **2**, 361–406 (1993). https://doi.org/10.1007/BF01263046
     
 
 ## Goals and Deliverables
 
 1. [Plan to have] Implement a sequential version of B+ Tree
-2. [Plan to have] Implement concurrency by fine grained lock
+2. [Plan to have] Implement concurrent B+ tree by coarse grained and fine grained lock
 3. [Plan to have] Implement lock free B+ tree
 4. [Plan to have] Implement a parallel N-body simulator supports efficient particle retrieval and removal based on B+ tree data structure and OpenMPI.
 5. [Plan to have] Perform benchmark testing on Synthetic sequence of read/write to a randomly generated B+ tree under parallel accessing.
