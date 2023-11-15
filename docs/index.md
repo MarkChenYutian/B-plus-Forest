@@ -5,8 +5,6 @@ title: 15418 Final Project
 
 ## Summary
 
-{% include NotImplemented.html %}
-
 We would like to implement parallel and distributed B+ tree using 2 different methods:
 1. Implementing parallel B+ Tree using fine-grained locking and lock-free data structure (using C++ Atomic)
 2. Implementing a parallel N-body simulator supports efficient particle retrieval, insertion, and removal based on B+ tree data structure and OpenMPI. Specifically, for a collection of processes, we want each process to maintain a local B+ Tree and communicate the updates with each other based on lazy update. (Somehow similar to the Cache coherence system, but maintain the coherence of parallel B+ tree across processes). 
