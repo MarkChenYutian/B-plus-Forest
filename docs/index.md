@@ -7,7 +7,7 @@ title: 15418 Final Project
 
 We would like to implement parallel and distributed B+ tree using 2 different methods:
 1. Implementing parallel B+ Tree using fine-grained locking and lock-free data structure (using C++ Atomic)
-2. Implementing a parallel N-body simulator supports efficient particle retrieval, insertion, and removal based on B+ tree data structure and OpenMPI. Specifically, for a collection of processes, we want each process to maintain a local B+ Tree and communicate the updates with each other based on lazy update. (Somehow similar to the Cache coherence system, but maintain the coherence of parallel B+ tree across processes). 
+2. Implementing a parallel N-body simulator supports efficient particle retrieval, insertion, and removal based on B+ tree data structure and OpenMPI. Specifically, for a collection of processes, we want each process to maintain a local B+ Tree and communicate the updates through MPI. The simulator will also support efficient query, addition and removal of certain particle(s).
 
 ## Background
 
@@ -52,10 +52,10 @@ OpenMPI is a key implementation of the MPI standard, vital in high-performance c
 1. [Plan to have] Implement a sequential version of B+ Tree
 2. [Plan to have] Implement concurrent B+ tree by coarse grained and fine grained lock
 3. [Plan to have] Implement lock free B+ tree
-4. [Plan to have] Implement a parallel N-body simulator supports efficient particle retrieval and removal based on B+ tree data structure and OpenMPI.
-5. [Plan to have] Perform benchmark testing on Synthetic sequence of read/write to a randomly generated B+ tree under parallel accessing.
-6. [Plan to have] Perform benchmark testing on Synthetic sequence of read/add/remove of particles during N-body simulation.
-7. [Nice to have] Perform benchmark testing on Synthetic sequence of adversarial (worst-case) read/write to a manually-designed B+ tree under parallel accessing.
+4. [Plan to have] Implement a parallel N-body simulator supports efficient particle retrieval and removal based on B+ tree data structure and OpenMPI. (each process has a "local" B+ tree)
+6. [Plan to have] Perform benchmark testing on Synthetic sequence of read/write to a randomly generated B+ tree under parallel accessing.
+7. [Plan to have] Perform benchmark testing on Synthetic sequence of read/add/remove of particles during N-body simulation.
+8. [Nice to have] Perform benchmark testing on Synthetic sequence of adversarial (worst-case) read/write to a manually-designed B+ tree under parallel accessing.
 
 ## Platform Choice
 
@@ -63,4 +63,8 @@ We decided to conduct our experiments and development on Linux platform using C+
 
 ## Schedule
 
-{% include NotImplemented.html %}
+* 19th Nov, 2023 - Fine grained B+ tree implementation
+* 26th Nov, 2023 - Lock free B+ tree implementation
+* 3rd Dec, 2023  - MPI N-body simulator with distributed B+ tree
+* 10th Dec, 2023 - Benchmarking the existing modules.
+
