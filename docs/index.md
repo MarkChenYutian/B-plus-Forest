@@ -1,5 +1,6 @@
 ---
 layout: default
+title: 15418 Final Project
 ---
 
 ## Summary
