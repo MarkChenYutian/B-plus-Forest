@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Define source files
 set(SOURCES
-    src/main.cpp
     src/tree.cpp
+    src/main.cpp
 )
 
 # Define header files
@@ -22,11 +22,11 @@ set(HEADERS
 include_directories(${CMAKE_SOURCE_DIR}/includes)
 
 # Debug build
-add_executable(BtreeDebug ${SOURCES} ${HEADERS})
+add_executable(BtreeDebug ${HEADERS} ${SOURCES})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
 target_compile_options(BtreeDebug PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g)
 set_target_properties(BtreeDebug PROPERTIES LINK_FLAGS "-fsanitize=address,undefined,leak")
 
 # Release build
-add_executable(BtreeRelease ${SOURCES} ${HEADERS})
+add_executable(BtreeRelease ${HEADERS} ${SOURCES})
 target_compile_options(BtreeRelease PRIVATE -O3)

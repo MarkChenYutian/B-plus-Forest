@@ -2,50 +2,46 @@
 #define TREE_H
 
 #include <iostream>
+#include <algorithm>
 #include <vector>
-#include <optional>
+#include <memory>
 
 namespace Tree {
+    template <typename T>
+    struct Node {
+        bool isLeaf;
+        Node<T>* parent;
+        std::vector<T> keys;
+        std::vector<Node<T>*> children;
+        Node(bool leaf) : isLeaf(leaf), parent(nullptr) {}
+    };
+
+
     template<typename T>
-class BPlusTree {
-    private:
-        struct Node {
-            bool isLeaf;
-            std::shared_ptr<Node> parent;
-            std::vector<int> keys;
-            union body
-            {
-                // Having children if not leaf node
-                std::vector<std::shared_ptr<Node> > children;    
-                // Having value if is leaf node
-                std::vector<T*> value;          
-            };
-            Node(bool leaf) : isLeaf(leaf), parent(nullptr) {}
-        };
+    class BPlusTree {
+        private:
+            Node<T>* rootPtr;
+            int ORDER_;
 
-        std::shared_ptr<Node> rootPtr;
-        int ORDER_;
+        public:
+            BPlusTree(int order);
+            ~BPlusTree();
 
-    public:
-        BPlusTree(int order=3) : rootPtr(nullptr), ORDER_(order) {}
+            // Public API
+            void insert(T key);
+            void remove(T key);
+            int  get(T key);
+            void printBPlusTree();
 
-        // Public API
-        void insert(int key);
-        void remove(int key);
-        int get(int key);
-        void printBPlusTree();
-
-    private:
-        // Private helper functions
-        std::shared_ptr<Node> findLeafNode(Node* node, int key);
-        void splitNode(std::shared_ptr<Node> node, int key);
-        void insertNonFull(std::shared_ptr<Node> node, int key);
-        void removeFromLeaf(std::shared_ptr<Node> node, int key);
-        void removeFromNonLeaf(std::shared_ptr<Node> node, int key);
-        int getFromLeafNode(std::shared_ptr<Node> node, int key, bool &isValid);
+        private:
+            // Private helper functions
+            Node<T>* findLeafNode(Node<T>* node, T key);
+            void splitNode(Node<T>* node, T key);
+            void insertNonFull(Node<T>* node, T key);
+            void removeFromLeaf(Node<T>* node, T key);
+            void removeFromNonLeaf(Node<T>* node, T key);
+            int getFromLeafNode(Node<T>* node, T key, bool &isValid);
     };
 }
-
-
 
 #endif
