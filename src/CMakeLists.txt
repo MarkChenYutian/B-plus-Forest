@@ -1,0 +1,32 @@
+# Minimum required CMake version
+cmake_minimum_required(VERSION 3.10)
+
+# Project name
+project(MyCppProject)
+
+# Specify the C++ standard (e.g., C++11)
+set(CMAKE_CXX_STANDARD 11)
+
+# Define source files
+set(SOURCES
+    src/main.cpp
+    src/tree.cpp
+)
+
+# Define header files
+set(HEADERS
+    includes/tree.h
+)
+
+# Include the 'includes' directory for header files
+include_directories(${CMAKE_SOURCE_DIR}/includes)
+
+# Debug build
+add_executable(BtreeDebug ${SOURCES} ${HEADERS})
+# Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
+target_compile_options(BtreeDebug PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g)
+set_target_properties(BtreeDebug PROPERTIES LINK_FLAGS "-fsanitize=address,undefined,leak")
+
+# Release build
+add_executable(BtreeRelease ${SOURCES} ${HEADERS})
+target_compile_options(BtreeRelease PRIVATE -O3)
