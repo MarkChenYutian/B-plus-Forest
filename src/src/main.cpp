@@ -1,10 +1,8 @@
 #include <iostream>
-#include "tree.h"
+#include "../includes/tree.h"
 
 int main() {
     std::cout << "Hello, World!" << std::endl;
-    std::cout << f() << std::endl;
-    int a[3];
-    a[4] = 10;
+    auto BPlusTree = new BPlusTree<int>(1);
     return 0;
 }
