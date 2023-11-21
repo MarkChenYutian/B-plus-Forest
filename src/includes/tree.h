@@ -18,7 +18,10 @@ namespace Tree {
         Node<T>* prev;
         Node(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr) {};
         void rebuild();
-        void checkParentChildPointers();
+        void debug_checkParentPointers();
+        void debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
+        void debug_checkChildCnt(int ordering);
+        void printKeys();
     };
 
 
@@ -29,13 +32,14 @@ namespace Tree {
             int ORDER_;
 
         public:
-            BPlusTree(int order);
+            BPlusTree(int order = 3);
             ~BPlusTree();
 
             // Public API
             Node<T>* getRoot();
+            int getOrder();
             void insert(T key);
-            void remove(T key);
+            bool remove(T key);
             std::optional<T> get(T key);
             void printBPlusTree();
 

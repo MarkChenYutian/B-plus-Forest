@@ -23,6 +23,9 @@ namespace Tree {
     Node<T> *BPlusTree<T>::getRoot() {return rootPtr;}
 
     template <typename T>
+    int BPlusTree<T>::getOrder() {return ORDER_;}
+
+    template <typename T>
     BPlusTree<T>::~BPlusTree() {
         if (rootPtr == nullptr) return;
         recursive_clean(rootPtr);
@@ -172,64 +175,207 @@ namespace Tree {
     }
 
     template <typename T>
-    void BPlusTree<T>::remove(T key) {
-        if (!rootPtr) {return;}
+    bool BPlusTree<T>::remove(T key) {
+        if (!rootPtr) {return false;}
         Node<T>* node = findLeafNode(rootPtr, key);
-        if (!removeFromLeaf(node, key)) return;
+        if (!removeFromLeaf(node, key)) return false;
         
+        /** Case 1: Removing the last element of tree
+         *  the tree will be empty and rootPtr replaced by nullptr 
+         * */
         if (node == rootPtr && node->keys.size() == 0) {
-            // ------TODO: add comment
             rootPtr = nullptr;
-            return;
+            return true;
         }
-
+        
+        /** 
+         * Case 2a: If the node is less than half full, 
+         * borrow (rebalance) the tree 
+         * */
         if (!isHalfFull(node)) removeBorrow(node);
-        else if (node->parent != nullptr) node->parent->rebuild();
+        
+        /** 
+         * Case 2b: If the node is balanced (> half), rebuild key
+         * FIXME: (is this necessary?) 
+         * Rebuild parent key in the tree
+         * */
+        else if (node->parent != nullptr) node->parent->rebuild(); ////// meaning?
+        return true;
     }
 
     template <typename T>
     void BPlusTree<T>::removeBorrow(Node<T> *node) {
-        // check if neighbors > half full => borrow 
-        // if fails, need to merge
-        if (node->prev != nullptr && moreHalfFull(node->prev)) { 
-            // brow from prev (Left -> right)
-            T keyBorrow = node->prev->keys.back();
-            node->keys.push_front(keyBorrow);
-            node->prev->keys.pop_back();
-            updateKeyToLCA(node->prev, node, true);
-            // TODO: borrow children?
-        } else if (node->next != nullptr && moreHalfFull(node->next)) {
-            // brow from next (Right -> left)
-            T keyBorrow = *(node->next->keys.begin());
-            node->keys.push_back(keyBorrow);
-            node->next->keys.pop_front();
-            updateKeyToLCA(node, node->next, false);
-            // TODO: borrow children?
+        // Edge case: root has no sibling node to borrow with
+        if (node->parent == nullptr && node == rootPtr) {
+            if (node->keys.size() == 0) {
+                assert (node->children.size() == 1);
+                rootPtr = node->children[0];
+                delete node;
+            }
+            return;
+        };
+        assert(node->parent != nullptr); // root does not have sibling
+
+        if (node->prev != nullptr && node->prev->parent == node->parent) {
+            if (moreHalfFull(node->prev)) {
+                // borrow from prev
+                if (!node->isLeaf) {
+                    printf("internal node borrow from left\n");
+                    int index = 0;
+                    while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
+
+                    assert(index < node->parent->keys.size() && node->parent->keys[index] > node->prev->keys.back());
+                    assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.front());
+
+                    T keyParentMove = node->parent->keys[index],
+                      keySiblingMove = node->prev->keys.back();
+                    
+                    node->parent->keys[index] = keySiblingMove;
+                    node->keys.push_front(keyParentMove);
+                    node->prev->keys.pop_back();
+
+                    node->children.push_front(node->prev->children.back());
+                    node->prev->children.pop_back();
+                    node->children[0]->parent = node;
+                } else {
+                    printf("leaf node borrow from left\n");
+                    T keyBorrow = node->prev->keys.back();
+                    node->keys.push_front(keyBorrow);
+                    node->prev->keys.pop_back();
+                    node->parent->rebuild();
+                }
+                
+            } else {
+                // merge with left
+                removeMerge(node);
+            }
         } else {
-            removeMerge(node);
+            assert(node->next != nullptr && node->next->parent == node->parent);
+            if (moreHalfFull(node->next)) {
+                // borrow from right
+                if (!node->isLeaf) { // internal node
+                    printf("internal node borrow from right\n");
+                    int index = 0;
+                    while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
+                    assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
+                    assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->next->keys.front());
+                    
+                    T keyParentMove = node->parent->keys[index],
+                      keySiblingMove = node->next->keys[0];
+                    
+                    node->parent->keys[index] = keySiblingMove;
+                    node->keys.push_back(keyParentMove);
+                    node->next->keys.pop_front();
+
+                    node->children.push_back(node->next->children[0]);
+                    node->next->children.pop_front();
+                    node->children.back()->parent = node;
+                } else { // leaf node
+                    printf("leaf node borrow from right\n");
+                    T keyBorrow = *(node->next->keys.begin());
+                    node->keys.push_back(keyBorrow);
+                    node->next->keys.pop_front();
+                    node->parent->rebuild();
+                    // updateKeyToLCA(node, node->next, false);
+                }
+            } else {
+                removeMerge(node);
+            }
+
         }
     }
 
     template <typename T>
     void BPlusTree<T>::removeMerge(Node<T>* node) {
-        if (node->prev != nullptr) { // merge with left
+        /**
+         * NOTE: No need to handle root here since we always first try to borrow
+         * then perform merging. (Roott cannot borrow, so this removeMerge will
+         * not be called)
+         */
+        /**
+         * NOTE: When merging, always merge with a sibling that shares same direct
+         * parent with node.
+         * 
+         * This is guarenteed to exist since
+         *  1. Every parent have at least 2 children
+         *  2. One of the sibling (left / right) must be of same parent by (1)
+         */
+        if (node->prev != nullptr && (node->prev->parent == node->parent)) {             
+            // merge with left
+            printf("merge with left\n");
             assert(node->prev->keys.size() > 0);
-            T lkey = node->prev->keys.back();
+            assert(node->prev->keys.size() + node->keys.size() < ORDER_);
+
+            if (!node->isLeaf) { // if it is internal node, also needs to merge children
+                printf("merge with left -- internal node\n");
+                /**
+                 * First, we want to find the key in parent that is larger then node->prev
+                 * (the key in between of node -> prev and node)
+                 * */ 
+                int index = 0;
+                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
+                
+                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->prev->keys.back());
+                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.front());
+
+                node->prev->keys.push_back(node->parent->keys[index]);
+                node->parent->keys.erase(node->parent->keys.begin() + index);
+                // Reassign parents
+                for (auto child : node->children) child->parent = node->prev;
+                node->prev->children.insert(
+                    node->prev->children.end(), node->children.begin(), node->children.end()
+                );
+            }
+
+
             node->prev->keys.insert(node->prev->keys.end(), node->keys.begin(), node->keys.end());
-            
             node->keys.clear();
-
-            node->parent->rebuild();
-            // if (!node->isLeaf) {
-                // assert(false);
-                // node->prev->children.insert(node->prev->children.end(), node->children.begin(), node->children.end()); ///????
-                // TODO: if it is internal node, also needs to merge children
-            // }
-
-            // TODO: parent need borrow? call removeBorrow()
+            auto parent = node->parent;
+            parent->rebuild();
+            
+            // TODO: Check children after merge
+            // assert(node->children.size() == node->keys.size() + 1 || (node->isLeaf && node->children.size() == 0));
+            if (!isHalfFull(parent)) {
+                printf("calling remove borrow from remove merge with left\n");
+                removeBorrow(parent);
+            }
+            
         } else { // merge with right
+            printf("merge with right\n");
             assert(node->next != nullptr); // Impossible!
+            assert(node->next->keys.size() > 0);
+            assert(node->keys.size() + node->next->keys.size() < ORDER_);
+            
+            if (!node->isLeaf) { 
+                // if it is internal node, also needs to merge children
+                printf("merge with right -- internal node\n");
+                /**
+                 * First, we want to find the key in parent that is larger then node
+                 * (the key in between of node and node -> next)
+                 * */ 
+                int index = 0;
+                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
 
+                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
+                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->next->keys.front());
+
+                /**
+                 * Then, we assign the keys to 
+                 * */
+                node->keys.push_back(node->parent->keys[index]);
+                node->parent->keys.erase(node->parent->keys.begin() + index);
+                // Reassign parents
+                for (auto child : node->next->children) child->parent = node;
+                node->children.insert(node->children.end(), node->next->children.begin(), node->next->children.end());
+            }
+
+            node->keys.insert(node->keys.end(), node->next->keys.begin(), node->next->keys.end());
+            node->next->keys.clear();            
+            node->parent->rebuild();
+
+            // Check children after merge
+            assert(node->children.size() == node->keys.size() + 1 || (node->isLeaf && node->children.size() == 0));
+            if (!isHalfFull(node->parent)) removeBorrow(node->parent);
         }
     }
     
