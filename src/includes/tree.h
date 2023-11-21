@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <algorithm>
-#include <vector>
 #include <deque>
 #include <memory>
 
@@ -26,22 +25,24 @@ namespace Tree {
 
 
     template<typename T>
-    class BPlusTree {
+    class SeqBPlusTree {
         private:
             Node<T>* rootPtr;
             int ORDER_;
 
         public:
-            BPlusTree(int order = 3);
-            ~BPlusTree();
+            SeqBPlusTree(int order = 3);
+            ~SeqBPlusTree();
 
-            // Public API
+            // Getter
             Node<T>* getRoot();
-            int getOrder();
+            void debug_assertIsValid();
+
+            // Public Tree API
             void insert(T key);
             bool remove(T key);
+            void print();
             std::optional<T> get(T key);
-            void printBPlusTree();
 
         private:
             // Private helper functions
@@ -55,7 +56,6 @@ namespace Tree {
 
             void removeBorrow(Node<T>* node);
             void removeMerge(Node<T>* node);
-            void updateKeyToLCA(Node<T>* left, Node<T>* right, bool isLeftToRight);
     };
 }
 

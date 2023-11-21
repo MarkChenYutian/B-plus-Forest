@@ -46,30 +46,14 @@ namespace Tree {
             if (!child->isLeaf) child->debug_checkParentPointers();
         }
     }
-
-    template <typename T>
-    void BPlusTree<T>::updateKeyToLCA(Node<T>* left, Node<T>* right, bool isLeftToRight) {
-        T lkey = left->keys.back(), rkey = right->keys.front();
-        while (left->parent != right->parent) {
-            left = left->parent;
-            right = right->parent;
-        }
-        Node<T>* lca = left->parent;
-        int index = 0;
-
-        if (isLeftToRight) {
-            while (index < lca->keys.size() && lca->keys[index] <= rkey) {index ++;}
-            lca->keys[index] = rkey;
-        } else {
-            while (index < lca->keys.size() && lca->keys[index] < lkey) {index ++;}
-            lca->keys[index] = rkey;
-        }
-    }
-
+    
     template <typename T>
     void Node<T>::printKeys() {
         std::cout << "[";
-        for (const auto key : this->keys) std::cout << key << ", ";
+        for (int i = 0; i < keys.size(); i ++) {
+            std::cout << keys[i];
+            if (i != keys.size() - 1) std::cout << ",";
+        }
         std::cout << "]";
     }
 
@@ -105,7 +89,6 @@ namespace Tree {
             child->debug_checkChildCnt(ordering);
         }
     }
-}
 
-template class Tree::Node<int>;
-template class Tree::BPlusTree<int>;
+
+}

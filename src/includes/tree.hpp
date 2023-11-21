@@ -1,13 +1,12 @@
 #include <algorithm>
 #include <iostream>
-#include <vector>
 #include <cassert>
 #include <optional>
 #include "tree.h"
 
 namespace Tree {
     template<typename T>
-    BPlusTree<T>::BPlusTree(int order): rootPtr(nullptr), ORDER_(order) {}
+    SeqBPlusTree<T>::SeqBPlusTree(int order): rootPtr(nullptr), ORDER_(order) {}
 
     template <typename T>
     void recursive_clean(Node<T>* ptr) {
@@ -20,19 +19,16 @@ namespace Tree {
     }
 
     template <typename T>
-    Node<T> *BPlusTree<T>::getRoot() {return rootPtr;}
+    Node<T> *SeqBPlusTree<T>::getRoot() {return rootPtr;}
 
     template <typename T>
-    int BPlusTree<T>::getOrder() {return ORDER_;}
-
-    template <typename T>
-    BPlusTree<T>::~BPlusTree() {
+    SeqBPlusTree<T>::~SeqBPlusTree() {
         if (rootPtr == nullptr) return;
         recursive_clean(rootPtr);
     }
 
     template <typename T>
-    void BPlusTree<T>::insert(T key) {
+    void SeqBPlusTree<T>::insert(T key) {
         if (rootPtr == nullptr) { // tree is empty before
             rootPtr = new Tree::Node<T>(true);
             rootPtr->keys.push_back(key);
@@ -46,7 +42,7 @@ namespace Tree {
     }
 
     template <typename T>
-    Node<T>* BPlusTree<T>::findLeafNode(Node<T>* node, T key) {
+    Node<T>* SeqBPlusTree<T>::findLeafNode(Node<T>* node, T key) {
         while (!node->isLeaf) {
             /**
              * std::upper_bound returns an iterator pointing to the first 
@@ -60,7 +56,7 @@ namespace Tree {
     }
     
     template <typename T>
-    void BPlusTree<T>::insertNonFull(Node<T>* node, T key) {
+    void SeqBPlusTree<T>::insertNonFull(Node<T>* node, T key) {
         /**
          * std::lower_bound returns an iterator pointing to the first element in a sorted 
          * range that is not less than a specified value.
@@ -70,26 +66,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void BPlusTree<T>::printBPlusTree() {
-        if (!rootPtr) return;
-        std::cout << "------Printing Tree------\n";
-        std::cout << "B+ Tree:" << std::endl;
-        printNode(rootPtr);
-        std::cout << std::endl;
-    }
-
-    template <typename T>
-    void printNode(Node<T>* node) {
-        std::cout << "{";
-        for (auto key : node->keys) std::cout << key << ", ";
-        std::cout << " children: [";
-        for (auto child : node->children) printNode(child);
-        std::cout << "]";
-        std::cout << "}";
-    }
-
-    template <typename T>
-    void BPlusTree<T>::splitNode(Node<T>* node, T key) {
+    void SeqBPlusTree<T>::splitNode(Node<T>* node, T key) {
         auto new_node = new Node<T>(node->isLeaf);
         auto middle   = node->keys.size() / 2;
         auto mid_key  = node->keys[middle];
@@ -150,7 +127,7 @@ namespace Tree {
     }
 
     template <typename T>
-    std::optional<T> BPlusTree<T>::get(T key) {
+    std::optional<T> SeqBPlusTree<T>::get(T key) {
         if (!rootPtr) {
             return std::nullopt;
         }
@@ -165,17 +142,17 @@ namespace Tree {
     }
 
     template <typename T>
-    bool BPlusTree<T>::isHalfFull(Node<T>* node) {
+    bool SeqBPlusTree<T>::isHalfFull(Node<T>* node) {
         return node->keys.size() >= (ORDER_ / 2);
     }
 
     template <typename T>
-    bool BPlusTree<T>::moreHalfFull(Node<T>* node) {
+    bool SeqBPlusTree<T>::moreHalfFull(Node<T>* node) {
         return node->keys.size() > (ORDER_ / 2);
     }
 
     template <typename T>
-    bool BPlusTree<T>::remove(T key) {
+    bool SeqBPlusTree<T>::remove(T key) {
         if (!rootPtr) {return false;}
         Node<T>* node = findLeafNode(rootPtr, key);
         if (!removeFromLeaf(node, key)) return false;
@@ -204,7 +181,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void BPlusTree<T>::removeBorrow(Node<T> *node) {
+    void SeqBPlusTree<T>::removeBorrow(Node<T> *node) {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == nullptr && node == rootPtr) {
             if (node->keys.size() == 0) {
@@ -220,7 +197,7 @@ namespace Tree {
             if (moreHalfFull(node->prev)) {
                 // borrow from prev
                 if (!node->isLeaf) {
-                    printf("internal node borrow from left\n");
+                    // printf("internal node borrow from left\n");
                     int index = 0;
                     while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
 
@@ -238,7 +215,7 @@ namespace Tree {
                     node->prev->children.pop_back();
                     node->children[0]->parent = node;
                 } else {
-                    printf("leaf node borrow from left\n");
+                    // printf("leaf node borrow from left\n");
                     T keyBorrow = node->prev->keys.back();
                     node->keys.push_front(keyBorrow);
                     node->prev->keys.pop_back();
@@ -254,7 +231,7 @@ namespace Tree {
             if (moreHalfFull(node->next)) {
                 // borrow from right
                 if (!node->isLeaf) { // internal node
-                    printf("internal node borrow from right\n");
+                    // printf("internal node borrow from right\n");
                     int index = 0;
                     while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
                     assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
@@ -271,7 +248,7 @@ namespace Tree {
                     node->next->children.pop_front();
                     node->children.back()->parent = node;
                 } else { // leaf node
-                    printf("leaf node borrow from right\n");
+                    // printf("leaf node borrow from right\n");
                     T keyBorrow = *(node->next->keys.begin());
                     node->keys.push_back(keyBorrow);
                     node->next->keys.pop_front();
@@ -286,7 +263,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void BPlusTree<T>::removeMerge(Node<T>* node) {
+    void SeqBPlusTree<T>::removeMerge(Node<T>* node) {
         /**
          * NOTE: No need to handle root here since we always first try to borrow
          * then perform merging. (Roott cannot borrow, so this removeMerge will
@@ -302,12 +279,12 @@ namespace Tree {
          */
         if (node->prev != nullptr && (node->prev->parent == node->parent)) {             
             // merge with left
-            printf("merge with left\n");
+            // printf("merge with left\n");
             assert(node->prev->keys.size() > 0);
             assert(node->prev->keys.size() + node->keys.size() < ORDER_);
 
             if (!node->isLeaf) { // if it is internal node, also needs to merge children
-                printf("merge with left -- internal node\n");
+                // printf("merge with left -- internal node\n");
                 /**
                  * First, we want to find the key in parent that is larger then node->prev
                  * (the key in between of node -> prev and node)
@@ -336,19 +313,19 @@ namespace Tree {
             // TODO: Check children after merge
             // assert(node->children.size() == node->keys.size() + 1 || (node->isLeaf && node->children.size() == 0));
             if (!isHalfFull(parent)) {
-                printf("calling remove borrow from remove merge with left\n");
+                // printf("calling remove borrow from remove merge with left\n");
                 removeBorrow(parent);
             }
             
         } else { // merge with right
-            printf("merge with right\n");
+            // printf("merge with right\n");
             assert(node->next != nullptr); // Impossible!
             assert(node->next->keys.size() > 0);
             assert(node->keys.size() + node->next->keys.size() < ORDER_);
             
             if (!node->isLeaf) { 
                 // if it is internal node, also needs to merge children
-                printf("merge with right -- internal node\n");
+                // printf("merge with right -- internal node\n");
                 /**
                  * First, we want to find the key in parent that is larger then node
                  * (the key in between of node and node -> next)
@@ -379,9 +356,8 @@ namespace Tree {
         }
     }
     
-
     template <typename T>
-    bool BPlusTree<T>::removeFromLeaf(Node<T>* node, T key) {
+    bool SeqBPlusTree<T>::removeFromLeaf(Node<T>* node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
             node->keys.erase(it);
@@ -389,6 +365,69 @@ namespace Tree {
         }
         return false;
     }
-    };
 
-template class Tree::BPlusTree<int>;
+    template <typename T>
+    void SeqBPlusTree<T>::debug_assertIsValid() {
+        // Move to left-most leaf node
+        Tree::Node<T>* src = rootPtr;
+        // checking parent child pointers
+        src->debug_checkParentPointers();
+        // checking ordering
+        src->debug_checkOrdering(std::nullopt, std::nullopt);
+        // checking number of key/children
+        src->debug_checkChildCnt(ORDER_);
+
+        do {
+            src = src->children[0];
+            auto ckptr = src;
+            // Check the leaf nodes linked list
+            while (ckptr->next != nullptr) {
+                if (ckptr->next->prev != ckptr) {
+                    std::cerr << "Corrupted linked list!\nI will try to print the tree to help debugging:" << std::endl;
+                    std::cout << "\033[1;31m FAILED";
+                    this->print();
+                    std::cout << "\033[0m";
+                    assert(false);
+                }
+                if (ckptr->next->keys[0] < ckptr->keys.back()) {
+                    std::cerr << "Leaves not well-ordered!\nI will try to print the tree to help debugging:" << std::endl;
+                    std::cout << "\033[1;31m FAILED";
+                    this->print();
+                    std::cout << "\033[0m";
+                    assert(false);
+                }
+                ckptr = ckptr->next;
+            }
+        } while (!src->isLeaf);
+
+        std::cout << "\033[1;32mPASS! tree is valid" << " \033[0m" << std::endl;
+    }
+
+    template <typename T>
+    void SeqBPlusTree<T>::print() {
+        
+        std::cout << "[Sequential B+ Tree]" << std::endl;
+        if (!rootPtr) {
+            std::cout << "(Empty)" << std::endl;
+            return;
+        }
+        Node<T>* src = rootPtr;
+        int level_cnt = 0;
+        do {
+            Node<T>* ptr = src;
+            std::cout << level_cnt << "\t| ";
+            while (ptr != nullptr) {
+                ptr->printKeys();
+                std::cout << "<->";
+                ptr = ptr->next;
+            }
+            level_cnt ++;
+            std::cout << std::endl;
+            if (src->children.size() == 0) break;
+            src = src->children[0];
+        } while (true);
+        
+        std::cout << std::endl;
+    }
+};
+

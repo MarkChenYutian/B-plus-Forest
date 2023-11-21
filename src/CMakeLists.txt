@@ -9,26 +9,26 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Define source files
 set(SOURCES
-    src/tree.cpp
-    src/util.cpp
     src/main.cpp
 )
 
 # Define header files
 set(HEADERS
     includes/tree.h
+    includes/tree.hpp
+    includes/node.hpp
 )
 
 
 # Test cases
-set(TESTSOURCES
-    src/tree.cpp
-    src/util.cpp
+set(UNIT_TEST_SRC
     src/test.cpp
 )
 
-set(TESTHEADERS
+set(UNIT_TEST_HEAD
     includes/tree.h
+    includes/tree.hpp
+    includes/node.hpp
 )
 
 # Include the 'includes' directory for header files
@@ -46,7 +46,7 @@ target_compile_options(BtreeRelease PRIVATE -O3)
 
 
 # Unit test build
-add_executable(BtreeUnitTest ${TESTHEADERS} ${TESTSOURCES})
+add_executable(BtreeUnitTest ${UNIT_TEST_HEAD} ${UNIT_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
 target_compile_options(BtreeUnitTest PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g)
 set_target_properties(BtreeUnitTest PROPERTIES LINK_FLAGS "-fsanitize=address,undefined,leak")
