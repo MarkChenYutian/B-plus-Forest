@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <deque>
 #include <memory>
 
 namespace Tree {
@@ -11,9 +12,13 @@ namespace Tree {
     struct Node {
         bool isLeaf;
         Node<T>* parent;
-        std::vector<T> keys;
-        std::vector<Node<T>*> children;
-        Node(bool leaf) : isLeaf(leaf), parent(nullptr) {}
+        std::deque<T> keys;
+        std::deque<Node<T>*> children;
+        Node<T>* next;
+        Node<T>* prev;
+        Node(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr) {};
+        void rebuild();
+        void checkParentChildPointers();
     };
 
 
@@ -28,9 +33,10 @@ namespace Tree {
             ~BPlusTree();
 
             // Public API
+            Node<T>* getRoot();
             void insert(T key);
             void remove(T key);
-            int  get(T key);
+            std::optional<T> get(T key);
             void printBPlusTree();
 
         private:
@@ -38,9 +44,14 @@ namespace Tree {
             Node<T>* findLeafNode(Node<T>* node, T key);
             void splitNode(Node<T>* node, T key);
             void insertNonFull(Node<T>* node, T key);
-            void removeFromLeaf(Node<T>* node, T key);
-            void removeFromNonLeaf(Node<T>* node, T key);
-            int getFromLeafNode(Node<T>* node, T key, bool &isValid);
+            bool removeFromLeaf(Node<T>* node, T key);
+
+            bool isHalfFull(Node<T>* node);
+            bool moreHalfFull(Node<T>* node);
+
+            void removeBorrow(Node<T>* node);
+            void removeMerge(Node<T>* node);
+            void updateKeyToLCA(Node<T>* left, Node<T>* right, bool isLeftToRight);
     };
 }
 

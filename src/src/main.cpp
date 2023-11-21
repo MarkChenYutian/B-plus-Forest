@@ -22,14 +22,18 @@ int main() {
         tree.printBPlusTree();
         tree.insert(12);
         tree.printBPlusTree();
-        tree.insert(17);
-        tree.printBPlusTree();
-        tree.insert(18);
-        tree.printBPlusTree();
-        tree.insert(16);
-        tree.printBPlusTree();
-        tree.insert(14);
-        tree.printBPlusTree();
+        // tree.insert(17);
+        // tree.printBPlusTree();
+        // tree.insert(18);
+        // tree.printBPlusTree();
+        // tree.insert(16);
+        // tree.printBPlusTree();
+        // tree.insert(14);
+        // tree.printBPlusTree();
+    }
+
+    {TESTCASE
+        auto tree = Tree::BPlusTree<int>(4);
     }
     
     return 0;
