@@ -5,6 +5,6 @@
 int main() {
     std::cout << "Hello, World!" << std::endl;
     
-    std::cout << (sizeof Tree::Node<int>(false)) << std::endl;
+    std::cout << (sizeof Tree::SeqNode<int>(false)) << std::endl;
     return 0;
 }

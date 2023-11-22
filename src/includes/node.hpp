@@ -4,15 +4,23 @@
 
 namespace Tree {
     template <typename T>
-    void Node<T>::rebuild() {
+    void SeqNode<T>::releaseAll() {
+        if (!isLeaf) {
+            for (auto child : children) child->releaseAll();
+        }
+        delete this;
+    }
+
+    template <typename T>
+    void SeqNode<T>::rebuild() {
         size_t key_len_before = keys.size();
         auto old_children = children;
-        children = std::deque<Node<T>*>();
+        children = std::deque<SeqNode<T>*>();
 
         auto left_most_prev = old_children[0] -> prev;
         auto right_most_next = old_children.back() -> next;
 
-        for (Node<T>* child : old_children) {
+        for (SeqNode<T>* child : old_children) {
             if (child->keys.size() == 0) delete child;
             else children.push_back(child);
         }
@@ -40,15 +48,15 @@ namespace Tree {
     }
 
     template <typename T>
-    void Node<T>::debug_checkParentPointers() {
-        for (Tree::Node<T>* child : children) {
+    void SeqNode<T>::debug_checkParentPointers() {
+        for (Tree::SeqNode<T>* child : children) {
             assert(child->parent == this);
             if (!child->isLeaf) child->debug_checkParentPointers();
         }
     }
     
     template <typename T>
-    void Node<T>::printKeys() {
+    void SeqNode<T>::printKeys() {
         std::cout << "[";
         for (int i = 0; i < keys.size(); i ++) {
             std::cout << keys[i];
@@ -58,7 +66,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void Node<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
+    void SeqNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
         for (const auto key : this->keys) {
             if (lower.has_value()) assert(key >= lower.value());
             if (upper.has_value()) assert(key < upper.value());
@@ -77,7 +85,7 @@ namespace Tree {
     }
     
     template <typename T>
-    void Node<T>::debug_checkChildCnt(int ordering) {
+    void SeqNode<T>::debug_checkChildCnt(int ordering) {
         if (this->isLeaf) {
             assert(this->children.size() == 0);
             return;
@@ -90,5 +98,11 @@ namespace Tree {
         }
     }
 
-
+    template <typename T>
+    void SeqNode<T>::consolidateChild() {
+        for (size_t id = 0; id < numChild(); id ++) {
+            children[id]->parent = this;
+            children[id]->childIndex = id;
+        }
+    }
 }
