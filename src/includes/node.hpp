@@ -12,10 +12,17 @@ namespace Tree {
     }
 
     template <typename T>
+    T getMin(SeqNode<T>* node) {
+        while (!node->isLeaf) node = node->children[0];
+        return node->keys[0];
+    }
+
+    template <typename T>
     void SeqNode<T>::rebuild() {
         size_t key_len_before = keys.size();
         auto old_children = children;
         children = std::deque<SeqNode<T>*>();
+        
 
         auto left_most_prev = old_children[0] -> prev;
         auto right_most_next = old_children.back() -> next;
@@ -23,7 +30,7 @@ namespace Tree {
         for (SeqNode<T>* child : old_children) {
             if (child->keys.size() == 0) delete child;
             else children.push_back(child);
-        }
+        }        
 
 
         for (int i = 0; i < children.size(); i ++) {
@@ -42,9 +49,8 @@ namespace Tree {
 
         keys.clear();
         for (int i = 1; i < children.size(); i++) {
-            keys.push_back(children[i]->keys[0]);
+            keys.push_back(getMin(children[i]));
         }
-        // assert(key_len_before == keys.size());
     }
 
     template <typename T>
@@ -52,6 +58,13 @@ namespace Tree {
         for (Tree::SeqNode<T>* child : children) {
             assert(child->parent == this);
             if (!child->isLeaf) child->debug_checkParentPointers();
+        }
+        if (this->parent != nullptr) {
+            for (const auto child : this->parent->children) {
+                if (child == this) return;
+            }
+            // Parent does not have reference to child!
+            assert(false);
         }
     }
     
@@ -68,15 +81,21 @@ namespace Tree {
     template <typename T>
     void SeqNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
         for (const auto key : this->keys) {
-            if (lower.has_value()) assert(key >= lower.value());
-            if (upper.has_value()) assert(key < upper.value());
+            if (lower.has_value() && key < lower.value()) {                
+                assert(false);
+            }
+            if (upper.has_value() && key >= upper.value()) {
+                assert(false);
+            }
         }
+        // if parent->prev == nullptr lower = null
+        // else lower = parent->prev->last key
         if (!this->isLeaf) {
             for (int i = 0; i < this->children.size(); i ++) {\
                 if (i == 0) {
-                    this->children[0]->debug_checkOrdering(lower, this->keys[0]);
+                    this->children[i]->debug_checkOrdering(lower, this->keys[0]);
                 } else if (i == this->children.size() - 1) {
-                    this->children.back()->debug_checkOrdering(this->keys.back(), upper);
+                    this->children[i]->debug_checkOrdering(this->keys.back(), upper);
                 } else {
                     this->children[i]->debug_checkOrdering(this->keys[i - 1], this->keys[i]);
                 }

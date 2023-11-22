@@ -60,6 +60,7 @@ namespace Tree {
         private:
             SeqNode<T>* rootPtr;
             int ORDER_;
+            int size_;
 
         public:
             SeqBPlusTree(int order = 3);
@@ -69,6 +70,7 @@ namespace Tree {
             SeqNode<T>* getRoot();
             void debug_assertIsValid(bool verbose);
             int  debug_numChild();
+            int  size();
 
             // Public Tree API
             void insert(T key);

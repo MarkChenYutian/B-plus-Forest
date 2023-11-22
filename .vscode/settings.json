@@ -77,7 +77,8 @@
         "xstring": "cpp",
         "xtr1common": "cpp",
         "xutility": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "fstream": "cpp"
     },
     "cmake.sourceDirectory": "E:/15-418-Final-Project/src"
 }

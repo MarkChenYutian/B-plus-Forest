@@ -92,8 +92,12 @@ class TestEngine {
 
         bool runTestCase() {
             for (size_t idx = 0; idx < currCase.size(); idx ++) {
-                if (idx % 100 == 0) T.debug_assertIsValid(false);
                 TestEntry entry = currCase[idx];
+                // std::cout << idx << " ";
+                // entry.print();
+                // T.print();
+                // T.debug_assertIsValid(false);
+
                 bool hasKey;
                 std::optional<int> key;
 
@@ -132,9 +136,15 @@ class TestEngine {
 
 
 int main() {
-    std::vector<std::string> Cases = {
-        "../test/1.case"
-    };
+    // std::vector<std::string> Cases = {
+    //     "../test/small55.case",
+    //     "../test/1.case"
+    // };
+    std::vector<std::string> Cases;
+    for (int i = 10; i < 100; i ++) {
+        std::string s = "../test/big" + std::to_string(i) + ".case";
+        Cases.push_back(s);
+    }
 
     TestEngine runner = TestEngine(Cases);
     runner.Run();
