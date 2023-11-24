@@ -1,12 +1,11 @@
 import random
 
-for i in range(100):
-    str_ = "./big" + str(i) + ".case"
-    # OUTPUT = "./3.case"
-    OUTPUT = str_
-    LENGTH = 200000
-    VALMAX = 100
-    OPS    = ["G", "I", "I", "I", "I", "D"]
+
+def writeCase(output, length, valmax, ops, threadCnt):
+    OUTPUT = output
+    LENGTH = length
+    VALMAX = valmax
+    OPS    = ops
     TREE   = set()
 
     lines = []
@@ -14,6 +13,7 @@ for i in range(100):
     for _ in range(LENGTH):
         op     = random.choice(OPS)
         value  = random.randint(0, VALMAX)
+        thread = random.randint(0, threadCnt - 1)
         while (op == "I" and value in TREE):
             op     = random.choice(OPS)
             value  = random.randint(0, VALMAX)
@@ -26,6 +26,23 @@ for i in range(100):
         elif op == "D":
             if value in TREE: expect = str(value)
             TREE.discard(value)
-        lines.append(f"{op},{value},{expect}")
+        lines.append(f"{op},{value},{expect},{thread}")
 
     with open(OUTPUT, "w") as f: f.write("\n".join(lines))
+
+for i in range(10):
+    writeCase(
+        f"./large_{i}.case",
+        1000000,
+        2000,
+        ["G", "I", "I", "I", "I", "D"],
+        4
+    )
+for i in range(10):
+    writeCase(
+        f"./small_{i}.case",
+        1000,
+        10,
+        ["G", "I", "I", "I", "I", "D"],
+        1
+    )

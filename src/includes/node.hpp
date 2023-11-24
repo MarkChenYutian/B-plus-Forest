@@ -51,21 +51,20 @@ namespace Tree {
         for (int i = 1; i < children.size(); i++) {
             keys.push_back(getMin(children[i]));
         }
+
+        consolidateChild();
     }
 
     template <typename T>
-    void SeqNode<T>::debug_checkParentPointers() {
+    bool SeqNode<T>::debug_checkParentPointers() {
         for (Tree::SeqNode<T>* child : children) {
-            assert(child->parent == this);
-            if (!child->isLeaf) child->debug_checkParentPointers();
+            if (child->parent != this) 
+                return false;
+            if (!(child->isLeaf || child->debug_checkParentPointers())) 
+                return false;
         }
-        if (this->parent != nullptr) {
-            for (const auto child : this->parent->children) {
-                if (child == this) return;
-            }
-            // Parent does not have reference to child!
-            assert(false);
-        }
+
+        return  !(this->parent != nullptr && this->parent->children[childIndex] != this);
     }
     
     template <typename T>
@@ -79,13 +78,13 @@ namespace Tree {
     }
 
     template <typename T>
-    void SeqNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
+    bool SeqNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
         for (const auto key : this->keys) {
             if (lower.has_value() && key < lower.value()) {                
-                assert(false);
+                return false;
             }
             if (upper.has_value() && key >= upper.value()) {
-                assert(false);
+                return false;
             }
         }
         // if parent->prev == nullptr lower = null
@@ -93,28 +92,33 @@ namespace Tree {
         if (!this->isLeaf) {
             for (int i = 0; i < this->children.size(); i ++) {\
                 if (i == 0) {
-                    this->children[i]->debug_checkOrdering(lower, this->keys[0]);
+                    if (!this->children[i]->debug_checkOrdering(lower, this->keys[0])) 
+                        return false;
                 } else if (i == this->children.size() - 1) {
-                    this->children[i]->debug_checkOrdering(this->keys.back(), upper);
+                    if (!this->children[i]->debug_checkOrdering(this->keys.back(), upper))
+                        return false;
                 } else {
-                    this->children[i]->debug_checkOrdering(this->keys[i - 1], this->keys[i]);
+                    if (!this->children[i]->debug_checkOrdering(this->keys[i - 1], this->keys[i]))
+                        return false;
                 }
             }
         }
+        return true;
     }
     
     template <typename T>
-    void SeqNode<T>::debug_checkChildCnt(int ordering) {
+    bool SeqNode<T>::debug_checkChildCnt(int ordering) {
         if (this->isLeaf) {
-            assert(this->children.size() == 0);
-            return;
+            return this->children.size() == 0;
         }
-        assert (this->keys.size() > 0);
-        assert (this->keys.size() < ordering);
-        assert (this->children.size() == this->keys.size() + 1);
+        if (this->keys.size() <= 0) return false;
+        if (this->keys.size() >= ordering) return false;
+        if (this->children.size() != this->keys.size() + 1) return false;
         for (auto child : this->children) {
-            child->debug_checkChildCnt(ordering);
+            bool childIsValid = child->debug_checkChildCnt(ordering);
+            if (!childIsValid) return false;
         }
+        return true;
     }
 
     template <typename T>

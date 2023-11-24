@@ -14,6 +14,11 @@ namespace Tree {
     }
 
     template <typename T>
+    int SeqBPlusTree<T>::size() {
+        return size_;
+    }
+
+    template <typename T>
     SeqBPlusTree<T>::~SeqBPlusTree() {
         if (rootPtr != nullptr) rootPtr->releaseAll();
     }
@@ -25,9 +30,9 @@ namespace Tree {
             rootPtr = new Tree::SeqNode<T>(true);
             rootPtr->keys.push_back(key);
         } else {
-            auto node = findLeafNode(rootPtr, key);
+            SeqNode<T> *node = findLeafNode(rootPtr, key);
             insertKey(node, key);
-            if (node->keys.size() >= ORDER_) splitNode(node, key);
+            if (node->numKeys() >= ORDER_) splitNode(node, key);
         }
     }
 
@@ -77,6 +82,7 @@ namespace Tree {
             node->children.erase(node_child_middle+1, node_child_end);
 
             new_node->consolidateChild();
+            node->consolidateChild();
         }
 
         /**
@@ -92,15 +98,12 @@ namespace Tree {
             new_root->children.push_back(node);
             new_root->children.push_back(new_node);
             
-            node->parent = new_root;
             node->next   = new_node;
             node->prev   = nullptr;
-            node->childIndex = 0;
-            
-            new_node->parent = new_root;
             new_node->prev   = node;
             new_node->next   = nullptr;
-            new_node->childIndex = 1;
+
+            new_root->consolidateChild();
             
             rootPtr = new_root;
             insertKey(new_root, mid_key);
@@ -111,12 +114,8 @@ namespace Tree {
              * parent if needed.
              */
             SeqNode<T> *parent = node->parent;
-            // size_t mid_key_idx = parent->getGeKeyIdx(key);
-            // parent->keys.insert(parent->keys.begin() + mid_key_idx, mid_key); 
-            size_t mid_key_idx = parent->getGtKeyIdx(node->keys.back());
-            parent->keys.insert(parent->keys.begin() + mid_key_idx, mid_key); 
-            
-            size_t index = parent->getGtKeyIdx(node->keys.back());
+            size_t index = node->childIndex;
+            parent->keys.insert(parent->keys.begin() + index, mid_key); 
             parent->children.insert(parent->children.begin() + index + 1, new_node);
 
             /**
@@ -166,18 +165,13 @@ namespace Tree {
     }
 
     template <typename T>
-    int SeqBPlusTree<T>::size() {
-        return size_;
-    }
-
-    template <typename T>
     bool SeqBPlusTree<T>::remove(T key) {
-        if (!rootPtr) {return false;}
+        if (rootPtr == nullptr) return false;
 
         SeqNode<T>* node = findLeafNode(rootPtr, key);
 
         if (!removeFromLeaf(node, key)) return false;
-        // printf("get \n");
+
         size_ --;
         /** Case 1: Removing the last element of tree
          *  the tree will be empty and rootPtr replaced by nullptr 
@@ -195,48 +189,58 @@ namespace Tree {
             removeBorrow(node);
         }
         
-        // printf("returning true\n");
         return true;
     }
 
     template <typename T>
     void SeqBPlusTree<T>::removeBorrow(SeqNode<T> *node) {
-        // printf("removeBorrow\n");
         // Edge case: root has no sibling node to borrow with
         if (node->parent == nullptr && node == rootPtr) {
             if (node->keys.size() == 0) {
-                assert (node->children.size() == 1);
                 rootPtr = node->children[0];
                 rootPtr->parent = nullptr;
                 delete node;
             }
             return;
         };
-        assert(node->parent != nullptr); // root does not have sibling
 
-        if (node->prev != nullptr && node->prev->parent == node->parent) {
-            if (moreHalfFull(node->prev)) {
-                // borrow from prev
+        /**
+         * NOTE: For the remaining cases, we know that node cannot be the root pointer,
+         * hence node must have a valid parent pointer.
+         * 
+         * For the simplicity and fine grained locking, we always operate the sibling node
+         * with same direct parent as current node.
+         */
+        SeqNode<T> *leftNode  = node->prev
+                ,  *rightNode = node->next;
+        
+        if (leftNode != nullptr && leftNode->parent == node->parent) {
+            /**
+             * If left node exists and have same parent as current node, we 
+             * 1. try to borrow from left node (node -> prev)
+             * 2. If 1) failed, try to merge with left node (node -> prev)
+             */
+            if (moreHalfFull(leftNode)) {
                 if (!node->isLeaf) {
-                    // printf("internal node borrow from left\n");
-                    int index = 0;
-                    while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
-
-                    assert(index < node->parent->keys.size() && node->parent->keys[index] > node->prev->keys.back());
-                    assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.front());
+                    /**
+                     * Case 1a. Borrow from left, where both are internal nodes
+                     */
+                    size_t index = leftNode->childIndex;
 
                     T keyParentMove = node->parent->keys[index],
-                      keySiblingMove = node->prev->keys.back();
+                      keySiblingMove = leftNode->keys.back();
                     
                     node->parent->keys[index] = keySiblingMove;
                     node->keys.push_front(keyParentMove);
-                    node->prev->keys.pop_back();
+                    leftNode->keys.pop_back();
 
-                    node->children.push_front(node->prev->children.back());
-                    node->prev->children.pop_back();
-                    node->children[0]->parent = node;
+                    node->children.push_front(leftNode->children.back());
+                    leftNode->children.pop_back();
+                    node->consolidateChild();
                 } else {
-                    // printf("leaf node borrow from left\n");
+                    /**
+                     * Case 1b. Borrow from left, where both are leaves
+                     */
                     T keyBorrow = node->prev->keys.back();
                     node->keys.push_front(keyBorrow);
                     node->prev->keys.pop_back();
@@ -244,39 +248,51 @@ namespace Tree {
                 }
                 
             } else {
-                // merge with left
+                /**
+                 * Case 2. Have to merge with left node
+                 */
                 removeMerge(node);
             }
         } else {
-            assert(node->next != nullptr && node->next->parent == node->parent);
-            if (moreHalfFull(node->next)) {
-                // borrow from right
-                if (!node->isLeaf) { // internal node
-                    // printf("internal node borrow from right\n");
-                    int index = 0;
-                    while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
-                    assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
-                    assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->next->keys.front());
+            /**
+             * If right node exists and have same parent as current node, we 
+             * 1. try to borrow from right node (node -> next)
+             * 2. If 1) failed, try to merge with right node (node -> next)
+             */
+            if (moreHalfFull(rightNode)) {
+                if (!node->isLeaf) {
+                    /**
+                     * Case 3a. Borrow from right, where both are internal nodes
+                     */
+                    size_t index = node->childIndex;
                     
-                    T keyParentMove = node->parent->keys[index],
-                      keySiblingMove = node->next->keys[0];
+                    T keyParentMove  = node->parent->keys[index],
+                      keySiblingMove = rightNode->keys[0];
                     
                     node->parent->keys[index] = keySiblingMove;
                     node->keys.push_back(keyParentMove);
-                    node->next->keys.pop_front();
+                    rightNode->keys.pop_front();
 
-                    node->children.push_back(node->next->children[0]);
-                    node->next->children.pop_front();
-                    node->children.back()->parent = node;
-                } else { // leaf node
-                    // printf("leaf node borrow from right\n");
+                    node->children.push_back(rightNode->children[0]);
+                    rightNode->children.pop_front();
+
+                    // Since we have changed the children's index for both node and right node
+                    // We need to update the childIndex for both (unlike leftNode case)
+                    node->consolidateChild();
+                    rightNode->consolidateChild();
+                } else { 
+                    /**
+                     * Case 3b. Borrow from right, where both are leaves
+                     */
                     T keyBorrow = *(node->next->keys.begin());
                     node->keys.push_back(keyBorrow);
                     node->next->keys.pop_front();
                     node->parent->rebuild();
-                    // updateKeyToLCA(node, node->next, false);
                 }
             } else {
+                /**
+                 * Case 4. Merge with right
+                 */
                 removeMerge(node);
             }
 
@@ -287,10 +303,9 @@ namespace Tree {
     void SeqBPlusTree<T>::removeMerge(SeqNode<T>* node) {
         /**
          * NOTE: No need to handle root here since we always first try to borrow
-         * then perform merging. (Roott cannot borrow, so this removeMerge will
+         * then perform merging. (Root cannot borrow, so this removeMerge will
          * not be called)
-         */
-        /**
+         *
          * NOTE: When merging, always merge with a sibling that shares same direct
          * parent with node.
          * 
@@ -298,108 +313,81 @@ namespace Tree {
          *  1. Every parent have at least 2 children
          *  2. One of the sibling (left / right) must be of same parent by (1)
          */
-        if (node->prev != nullptr && (node->prev->parent == node->parent)) {             
-            // merge with left
-            // printf("merge with left in removeMerge\n");
-            assert(node->prev->keys.size() > 0);
-            assert(node->prev->keys.size() + node->keys.size() < ORDER_);
-
-            if (!node->isLeaf) { // if it is internal node, also needs to merge children
-                // printf("merge with left -- internal node\n");
+        if (node->prev != nullptr && (node->prev->parent == node->parent)) {
+            if (!node->isLeaf) {
                 /**
+                 * Case 1a. Merge with left where both are internal nodes
+                 * 
                  * First, we want to find the key in parent that is larger then node->prev
                  * (the key in between of node -> prev and node)
-                 * */ 
-                int index = 0;
-                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
-                
-                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->prev->keys.back());
-                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.front());
-
+                 * */
+                size_t index = node->prev->childIndex;
                 node->prev->keys.push_back(node->parent->keys[index]);
-
                 node->parent->keys.erase(node->parent->keys.begin() + index);
-                // Reassign parents
-                for (auto child : node->children) child->parent = node->prev;
+
                 node->prev->children.insert(
                     node->prev->children.end(), node->children.begin(), node->children.end()
                 );
                 node->prev->keys.insert(node->prev->keys.end(), node->keys.begin(), node->keys.end());
                 node->keys.clear();
-            } else { // leaf node
 
-                /*
-                */
-                int index = 0;
-                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->prev->keys.back()) index ++;
-                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->prev->keys.back());
-                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.front());
+                // Set parent pointer and rebuild childIndex
+                node->prev->consolidateChild();
+            } else {
+                /**
+                 * Case 1b. Merge with left node where both are leaves
+                 */
+                size_t index = node->prev->childIndex;
                 node->parent->keys.erase(node->parent->keys.begin() + index);
 
                 node->prev->keys.insert(node->prev->keys.end(), node->keys.begin(), node->keys.end());
                 node->keys.clear();
             }
 
-            auto parent = node->parent;
+            SeqNode<T> *parent = node->parent;
             parent->rebuild();
             
-            // TODO: Check children after merge
-            // assert(node->children.size() == node->keys.size() + 1 || (node->isLeaf && node->children.size() == 0));
-            if (!isHalfFull(parent)) {
-                // printf("calling remove borrow from remove merge with left\n");
-                removeBorrow(parent);
-            }
+            /**
+             * NOTE: If after merging, the parent is less than half full, to rebalance the B+ tree
+             * we will need to borrow for the parent node.
+             */
+            if (!isHalfFull(parent)) removeBorrow(parent);
             
-        } else { // merge with right
-            // printf("merge with right\n");
-            assert(node->next != nullptr); // Impossible!
-            assert(node->next->keys.size() > 0);
-            assert(node->keys.size() + node->next->keys.size() < ORDER_);
-            
+        } else {
             if (!node->isLeaf) { 
-                // if it is internal node, also needs to merge children
-                // printf("merge with right -- internal node\n");
                 /**
-                 * First, we want to find the key in parent that is larger then node
-                 * (the key in between of node and node -> next)
-                 * */ 
-                int index = 0;
-                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
-
-                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
-                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->next->keys.front());
+                 * Case 3.a Merge with right where both nodes are internal nodes
+                 * */
+                size_t index = node->childIndex;
 
                 /**
-                 * Then, we assign the keys to 
+                 * Then, we assign the keys to merging node
                  * */
                 node->keys.push_back(node->parent->keys[index]);
                 node->parent->keys.erase(node->parent->keys.begin() + index);
-                // Reassign parents
-                for (auto child : node->next->children) child->parent = node;
+
                 node->children.insert(node->children.end(), node->next->children.begin(), node->next->children.end());
                 node->keys.insert(node->keys.end(), node->next->keys.begin(), node->next->keys.end());
                 node->next->keys.clear(); 
 
+                // Reassign parents & reconstruct childIdx
+                node->consolidateChild();
             } else {
-                int index = 0;
-                while (index < node->parent->keys.size() && node->parent->keys[index] <= node->keys.back()) index ++;
-
-                assert(index < node->parent->keys.size() && node->parent->keys[index] > node->keys.back());
-                assert(index < node->parent->keys.size() && node->parent->keys[index] <= node->next->keys.front());
+                size_t index = node->childIndex;
 
                 /**
-                 * Then, we assign the keys to 
+                 * Then, we assign the keys to left child node (node)
                  * */
                 node->parent->keys.erase(node->parent->keys.begin() + index);
                 node->keys.insert(node->keys.end(), node->next->keys.begin(), node->next->keys.end());
-                node->next->keys.clear();      
-            }
-
-                  
+                node->next->keys.clear();
+            }                  
             node->parent->rebuild();
 
-            // Check children after merge
-            assert(node->children.size() == node->keys.size() + 1 || (node->isLeaf && node->children.size() == 0));
+            /**
+             * If parent node is less than half-full due to the key borrowing
+             * during merge, need to rebalance the parent node.
+             */
             if (!isHalfFull(node->parent)) removeBorrow(node->parent);
         }
     }
@@ -415,21 +403,27 @@ namespace Tree {
     }
 
     template <typename T>
-    void SeqBPlusTree<T>::debug_assertIsValid(bool verbose) {
-        if (rootPtr == nullptr) return;
-        // Move to left-most leaf node
-        Tree::SeqNode<T>* src = rootPtr;
-        // checking parent child pointers
-        src->debug_checkParentPointers();
-        // checking ordering
-        src->debug_checkOrdering(std::nullopt, std::nullopt);
-        // checking number of key/children
-        src->debug_checkChildCnt(ORDER_);
+    bool SeqBPlusTree<T>::debug_checkIsValid(bool verbose) {
+        if (rootPtr == nullptr) return (size_ == 0);
 
+        // checking parent child pointers
+        bool isValidParentPtr = rootPtr->debug_checkParentPointers();
+        if (!isValidParentPtr) return false;
+
+        // checking ordering
+        bool isValidOrdering = rootPtr->debug_checkOrdering(std::nullopt, std::nullopt);
+        if (!isValidOrdering)  return false;
+
+        // checking number of key/children
+        bool isValidChildCnt = rootPtr->debug_checkChildCnt(ORDER_);
+        if (!isValidChildCnt) return false;
+
+        Tree::SeqNode<T>* src = rootPtr;
         do {
             if (src->children.size() == 0) break;
             src = src->children[0];
-            auto ckptr = src;
+            SeqNode<T> *ckptr = src;
+
             // Check the leaf nodes linked list
             while (ckptr->next != nullptr) {
                 if (ckptr->next->prev != ckptr) {
@@ -437,32 +431,33 @@ namespace Tree {
                     std::cout << "\033[1;31m FAILED";
                     this->print();
                     std::cout << "\033[0m";
-                    assert(false);
+                    return false;
                 }
+
                 if (ckptr->next->keys[0] < ckptr->keys.back()) {
                     std::cerr << "Leaves not well-ordered!\nI will try to print the tree to help debugging:" << std::endl;
                     std::cout << "\033[1;31m FAILED";
                     this->print();
                     std::cout << "\033[0m";
-                    assert(false);
+                    return false;
                 }
+
                 ckptr = ckptr->next;
             }
         } while (!src->isLeaf);
 
-        assert(src->isLeaf);
         int cnt_leaf_key = 0;
         for (;src != nullptr; src = src->next) {
             cnt_leaf_key += src->keys.size();
         }
         if (size_ != cnt_leaf_key) {
             std::cout << "FAIL: expect size " << size_ << " actual leaf cnt " << cnt_leaf_key << std::endl;
-            print();
-            assert(false);
+            return false;
         }
 
         if (verbose)
             std::cout << "\033[1;32mPASS! tree is valid" << " \033[0m" << std::endl;
+        return true;
     }
 
     template <typename T>

@@ -4,9 +4,22 @@
 #include <iostream>
 #include <algorithm>
 #include <deque>
+#include <mutex>
 #include <memory>
 
 namespace Tree {
+    template <typename T>
+    class ITree {
+        public:
+            bool debug_checkIsValid(bool verbose);
+            int  size();
+            
+            void insert(T key);
+            bool remove(T key);
+            void print();
+            std::optional<T> get(T key);
+    };
+
     template <typename T>
     /**
      * NOTE: A tree node for sequential version of B+ tree
@@ -29,9 +42,9 @@ namespace Tree {
         void printKeys();
         void releaseAll();
         void consolidateChild();
-        void debug_checkParentPointers();
-        void debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
-        void debug_checkChildCnt(int ordering);
+        bool debug_checkParentPointers();
+        bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
+        bool debug_checkChildCnt(int ordering);
 
         inline size_t numKeys()  {return keys.size();}
         inline size_t numChild() {return children.size();}
@@ -42,11 +55,6 @@ namespace Tree {
          * If the key is larger than all keys in node, will return an
          * **out-of-bound** index!
          */
-        inline size_t getGeKeyIdx(T key) {
-            size_t index = 0;
-            while (index < numKeys() && keys[index] < key) index ++;
-            return index;
-        }
         inline size_t getGtKeyIdx(T key) {
             size_t index = 0;
             while (index < numKeys() && keys[index] <= key) index ++;
@@ -56,7 +64,7 @@ namespace Tree {
 
 
     template<typename T>
-    class SeqBPlusTree {
+    class SeqBPlusTree : public ITree<T> {
         private:
             SeqNode<T>* rootPtr;
             int ORDER_;
@@ -68,8 +76,7 @@ namespace Tree {
 
             // Getter
             SeqNode<T>* getRoot();
-            void debug_assertIsValid(bool verbose);
-            int  debug_numChild();
+            bool debug_checkIsValid(bool verbose);
             int  size();
 
             // Public Tree API
@@ -90,6 +97,23 @@ namespace Tree {
 
             void removeBorrow(SeqNode<T>* node);
             void removeMerge(SeqNode<T>* node);
+    };
+
+    template<typename T>
+    class CoarseLockBPlusTree : public ITree<T> {
+        private:
+            std::mutex lock;
+            SeqBPlusTree<T> tree;
+        public:
+            CoarseLockBPlusTree(int order = 3);
+            ~CoarseLockBPlusTree();
+            bool debug_checkIsValid(bool verbose);
+            int  size();
+            
+            void insert(T key);
+            bool remove(T key);
+            void print();
+            std::optional<T> get(T key);
     };
 }
 

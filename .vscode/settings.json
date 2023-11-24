@@ -78,7 +78,12 @@
         "xtr1common": "cpp",
         "xutility": "cpp",
         "deque": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "*.tcc": "cpp",
+        "functional": "cpp",
+        "memory_resource": "cpp",
+        "numeric": "cpp",
+        "random": "cpp"
     },
-    "cmake.sourceDirectory": "E:/15-418-Final-Project/src"
+    "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }

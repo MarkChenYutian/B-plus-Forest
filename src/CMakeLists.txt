@@ -15,13 +15,15 @@ set(SOURCES
 # Define header files
 set(HEADERS
     includes/tree.h
-    includes/tree.hpp
+    includes/seqTree.hpp
+    includes/coarseTree.hpp
     includes/node.hpp
+    includes/engine.hpp
 )
 
 
 # Test cases
-set(UNIT_TEST_SRC src/test.cpp)
+set(UNIT_TEST_SRC src/unitTest.cpp)
 
 # Test engine
 set(ENGINE_TEST_SRC src/testEngine.cpp)
