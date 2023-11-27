@@ -63,6 +63,13 @@ namespace Tree {
         }
     };
 
+    /**
+     * NOTE: A tree node for finegrained locked version of B+ tree
+     */
+    template <typename T>
+    struct LockNode {
+
+    };
 
     template<typename T>
     class SeqBPlusTree : public ITree<T> {
@@ -109,6 +116,23 @@ namespace Tree {
         public:
             CoarseLockBPlusTree(int order = 3);
             ~CoarseLockBPlusTree();
+            bool debug_checkIsValid(bool verbose);
+            int  size();
+            
+            void insert(T key);
+            bool remove(T key);
+            void print();
+            std::optional<T> get(T key);
+            std::vector<T> toVec();
+    };
+
+    template<typename T>
+    class FineLockBPlusTree : public ITree<T> {
+        private:
+            SeqBPlusTree<T> tree;
+        public:
+            FineLockBPlusTree(int order = 3);
+            ~FineLockBPlusTree();
             bool debug_checkIsValid(bool verbose);
             int  size();
             

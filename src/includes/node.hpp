@@ -19,7 +19,6 @@ namespace Tree {
 
     template <typename T>
     void SeqNode<T>::rebuild() {
-        size_t key_len_before = keys.size();
         auto old_children = children;
         children = std::deque<SeqNode<T>*>();
         
@@ -28,19 +27,19 @@ namespace Tree {
         auto right_most_next = old_children.back() -> next;
 
         for (SeqNode<T>* child : old_children) {
-            if (child->keys.size() == 0) delete child;
+            if (child->numKeys() == 0) delete child;
             else children.push_back(child);
         }        
 
 
-        for (int i = 0; i < children.size(); i ++) {
+        for (int i = 0; i < numChild(); i ++) {
             if (i == 0) {
                 children[i] -> prev = left_most_prev;
                 if (left_most_prev != nullptr) left_most_prev -> next = children[i];
             }
             else children[i] -> prev = children[i - 1];
 
-            if (i == children.size() - 1) {
+            if (i == numChild() - 1) {
                 children[i] -> next = right_most_next;
                 if (right_most_next != nullptr) right_most_next -> prev = children[i];
             }
@@ -48,7 +47,7 @@ namespace Tree {
         }
 
         keys.clear();
-        for (int i = 1; i < children.size(); i++) {
+        for (int i = 1; i < numChild(); i++) {
             keys.push_back(getMin(children[i]));
         }
 
@@ -70,9 +69,9 @@ namespace Tree {
     template <typename T>
     void SeqNode<T>::printKeys() {
         std::cout << "[";
-        for (int i = 0; i < keys.size(); i ++) {
+        for (int i = 0; i < numKeys(); i ++) {
             std::cout << keys[i];
-            if (i != keys.size() - 1) std::cout << ",";
+            if (i != numKeys() - 1) std::cout << ",";
         }
         std::cout << "]";
     }
@@ -90,11 +89,11 @@ namespace Tree {
         // if parent->prev == nullptr lower = null
         // else lower = parent->prev->last key
         if (!this->isLeaf) {
-            for (int i = 0; i < this->children.size(); i ++) {\
+            for (int i = 0; i < numChild(); i ++) {\
                 if (i == 0) {
                     if (!this->children[i]->debug_checkOrdering(lower, this->keys[0])) 
                         return false;
-                } else if (i == this->children.size() - 1) {
+                } else if (i == numChild() - 1) {
                     if (!this->children[i]->debug_checkOrdering(this->keys.back(), upper))
                         return false;
                 } else {
@@ -109,11 +108,11 @@ namespace Tree {
     template <typename T>
     bool SeqNode<T>::debug_checkChildCnt(int ordering) {
         if (this->isLeaf) {
-            return this->children.size() == 0;
+            return numChild() == 0;
         }
-        if (this->keys.size() <= 0) return false;
-        if (this->keys.size() >= ordering) return false;
-        if (this->children.size() != this->keys.size() + 1) return false;
+        if (numKeys() <= 0) return false;
+        if (numKeys() >= ordering) return false;
+        if (numChild() != numKeys() + 1) return false;
         for (auto child : this->children) {
             bool childIsValid = child->debug_checkChildCnt(ordering);
             if (!childIsValid) return false;

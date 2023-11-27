@@ -30,6 +30,7 @@ namespace Tree {
 
     template <typename T>
     void CoarseLockBPlusTree<T>::print() {
+        std::cout << "[Coarse Lock] " << std::endl;
         std::lock_guard<std::mutex> guard(lock);
         tree.print();
     }

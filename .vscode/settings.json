@@ -85,7 +85,11 @@
         "numeric": "cpp",
         "random": "cpp",
         "condition_variable": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "barrier": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp"
     },
-    "cmake.sourceDirectory": "E:/15-418-Final-Project/src"
+    "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }

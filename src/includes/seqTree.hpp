@@ -54,7 +54,7 @@ namespace Tree {
     template <typename T>
     void SeqBPlusTree<T>::splitNode(SeqNode<T>* node, T key) {
         SeqNode<T> *new_node = new SeqNode<T>(node->isLeaf);
-        auto middle   = node->keys.size() / 2;
+        auto middle   = node->numKeys() / 2;
         auto mid_key  = node->keys[middle];
 
         auto node_key_middle   = node->keys.begin() + middle;
@@ -135,7 +135,7 @@ namespace Tree {
             /**
              * If the parent is too full, split the parent node recursively.
              */
-            if (parent->keys.size() >= ORDER_) splitNode(parent, key);
+            if (parent->numKeys() >= ORDER_) splitNode(parent, key);
         }
     }
 
@@ -148,7 +148,7 @@ namespace Tree {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
-        if (index < node->keys.size() && node->keys[index] == key) {
+        if (index < node->numKeys() && node->keys[index] == key) {
             return key; // Key found in this node
         } 
         return std::nullopt; // Key not found
@@ -156,12 +156,12 @@ namespace Tree {
 
     template <typename T>
     bool SeqBPlusTree<T>::isHalfFull(SeqNode<T>* node) {
-        return node->keys.size() >= (ORDER_ / 2);
+        return node->numKeys() >= (ORDER_ / 2);
     }
 
     template <typename T>
     bool SeqBPlusTree<T>::moreHalfFull(SeqNode<T>* node) {
-        return node->keys.size() > (ORDER_ / 2);
+        return node->numKeys() > (ORDER_ / 2);
     }
 
     template <typename T>
@@ -176,7 +176,7 @@ namespace Tree {
         /** Case 1: Removing the last element of tree
          *  the tree will be empty and rootPtr replaced by nullptr 
          * */
-        if (node == rootPtr && node->keys.size() == 0) {
+        if (node == rootPtr && node->numKeys() == 0) {
             rootPtr = nullptr;
             return true;
         }
@@ -196,7 +196,7 @@ namespace Tree {
     void SeqBPlusTree<T>::removeBorrow(SeqNode<T> *node) {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == nullptr && node == rootPtr) {
-            if (node->keys.size() == 0) {
+            if (node->numKeys() == 0) {
                 rootPtr = node->children[0];
                 rootPtr->parent = nullptr;
                 delete node;
@@ -420,7 +420,7 @@ namespace Tree {
 
         Tree::SeqNode<T>* src = rootPtr;
         do {
-            if (src->children.size() == 0) break;
+            if (src->numChild() == 0) break;
             src = src->children[0];
             SeqNode<T> *ckptr = src;
 
@@ -448,7 +448,7 @@ namespace Tree {
 
         int cnt_leaf_key = 0;
         for (;src != nullptr; src = src->next) {
-            cnt_leaf_key += src->keys.size();
+            cnt_leaf_key += src->numKeys();
         }
         if (size_ != cnt_leaf_key) {
             std::cout << "FAIL: expect size " << size_ << " actual leaf cnt " << cnt_leaf_key << std::endl;
@@ -480,7 +480,7 @@ namespace Tree {
             }
             level_cnt ++;
             std::cout << std::endl;
-            if (src->children.size() == 0) break;
+            if (src->numChild() == 0) break;
             src = src->children[0];
         } while (true);
         
@@ -491,6 +491,8 @@ namespace Tree {
     std::vector<T> SeqBPlusTree<T>::toVec() {
         SeqNode<T> *ptr = rootPtr;
         std::vector<T> vec;
+        if (ptr == nullptr) return vec;
+        
         for (; !ptr->isLeaf; ptr = ptr->children[0]){}
         while (ptr != nullptr) {
             for (T &key : ptr->keys) vec.push_back(key);

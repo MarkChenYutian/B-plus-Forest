@@ -6,9 +6,13 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <type_traits>
+#include <barrier>
 #include "node.hpp"
 
-enum TestOp {INSERT, REMOVE, GET};
+pthread_barrier_t barrier;
+pthread_barrier_t barrier2;
+
+enum TestOp {INSERT, REMOVE, GET, BARRIER};
 
 namespace Engine {
 
@@ -16,6 +20,7 @@ struct TestEntry {
     int value;
     TestOp op;
     std::optional<int> expect;
+    bool isBarrier() {return op == TestOp::BARRIER;}
 
     void print() {
         if (op == TestOp::GET) std::cout << "GET ";
@@ -29,7 +34,12 @@ struct TestEntry {
         }
     }
 
-    int parse(const std::string &line) {
+    void parse(const std::string &line) {
+        if (line == "BARRIER") {
+            op = TestOp::BARRIER;
+            return;
+        }
+
         std::istringstream iss(line);
         std::string tok;
 
@@ -50,18 +60,17 @@ struct TestEntry {
         {
             expect = std::nullopt;
         }
-
-        std::getline(iss, tok, ',');
-        int thread = std::stoi(tok);
-        return thread;
     }
 };
 
-template <typename T>
+template <typename T, typename K>
 struct WorkerArgs {
-    T *tree;
-    std::vector<std::vector<TestEntry>> *currCase;
+    T *concurrent_tree;
+    T *seq_tree;
+    Tree::SeqBPlusTree<K>  *real_seq_tree;
+    std::vector<TestEntry> *currCase;
     int threadID;
+    int threadNum;
 };
 
 template <typename T, typename K>
@@ -172,43 +181,61 @@ private:
     int order;
     int threadNum;
     std::vector<std::string> paths;
-    std::vector<std::vector<TestEntry>> currCase;
+    std::vector<TestEntry>   currCase;
 
 public:
     threadingEngine(std::vector<std::string> paths, int order, int threadNum): 
         paths(paths), order(order), threadNum(threadNum)
         {
-            currCase = std::vector<std::vector<TestEntry>>(threadNum);
+            currCase = std::vector<TestEntry>();
         };
 
     void Run() {
         for (size_t i = 0; i < paths.size(); i ++) {
             const auto testCase = paths[i];
-            std::cout << "Running " << testCase << " ...";
+            std::cout << "Running " << testCase << " ..." << std::flush;
             loadTestCase(testCase);
             {
-                auto tree = T(order);
-                WorkerArgs<T> args[threadNum];
-                pthread_t threads[threadNum];
+                auto concurrent_tree = T(order);
+                auto seq_tree = T(order);
+                WorkerArgs<T, K> args[threadNum + 2];
+                pthread_t threads[threadNum + 2];
 
-                for (int threadId = 0; threadId < threadNum; threadId ++) {
-                    args[threadId].tree = &tree;
-                    args[threadId].currCase = &currCase;
-                    args[threadId].threadID = threadId;
+                for (int threadId = 0; threadId < threadNum + 2; threadId ++) {
+                    args[threadId].concurrent_tree = &concurrent_tree;
+                    args[threadId].seq_tree  = &seq_tree;
+                    args[threadId].currCase  = &currCase;
+                    args[threadId].threadID  = threadId;
+                    args[threadId].threadNum = threadNum;
                 }
 
-                for (int threadId = 0; threadId < threadNum; threadId ++) {
-                    pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+                // initialize the barrier with the number of threads
+                pthread_barrier_init(&barrier, NULL, threadNum + 2);
+                pthread_barrier_init(&barrier2, NULL, threadNum + 2);
+                
+                for (int threadId = 0; threadId < threadNum + 2; threadId ++) {
+                    if (threadId < threadNum + 1) {
+                        // First threadNum threads are concurrent Tree Thread
+                        // threadNum+1-th thread is seq Tree Thread
+                        pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+                    } else {
+                        pthread_create(&threads[threadId], NULL, runReadCheck, &args[threadId]);
+                    }
+                    
                 }
 
-                for (int i = 0; i < threadNum; i++){
+                for (int i = 0; i < threadNum + 2; i++){
                     if (pthread_join(threads[i], NULL) != 0) {
                         std::cerr << "Error joining thread " << i << std::endl;
                         exit(1);
                     }
                 }
 
-                bool pass = tree.debug_checkIsValid(false);
+                // Destroy the barrier, condition, mutex
+                pthread_barrier_destroy(&barrier);
+                pthread_barrier_destroy(&barrier2);
+
+                bool pass = concurrent_tree.debug_checkIsValid(false);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << i << " " << testCase << "\033[0m" << std::endl;
                 else std::cout << "\r\033[1;31mFAIL Case " << i << " " << testCase << "\033[0m" << std::endl;
             }
@@ -217,9 +244,7 @@ public:
 
 private:
     void loadTestCase(const std::string &filePath) {
-        for (int i = 0; i < threadNum; i ++) {
-            currCase[i].clear();
-        }
+        currCase.clear();
 
         std::ifstream file(filePath);
         std::string   line;
@@ -232,28 +257,41 @@ private:
 
         while (std::getline(file, line)) {
             TestEntry entry;
-            int thread = entry.parse(line);
-            currCase[thread].emplace_back(entry);
+            entry.parse(line);
+            currCase.emplace_back(entry);
         }
     }
 
     static void *runTestCase(void* arg) {
-        WorkerArgs<T> *warg = static_cast<WorkerArgs<T>*>(arg);
-        T *tree = warg->tree;
-        std::vector<std::vector<TestEntry>> *currCase = warg->currCase;
+        WorkerArgs<T, K> *warg = static_cast<WorkerArgs<T, K>*>(arg);
+        
+        T *tree;
+        std::vector<TestEntry> *currCase = warg->currCase;
         int thread_id = warg->threadID;
+        assert(thread_id < warg->threadNum + 1);
 
+        bool isConcurrentThread = thread_id < warg->threadNum;
+        
+        if (isConcurrentThread) tree = warg->concurrent_tree;
+        else tree = warg->seq_tree;
 
-        for (size_t idx = 0; idx < currCase->at(thread_id).size(); idx ++) {
-            TestEntry entry = currCase->at(thread_id)[idx];
+        for (size_t idx = 0; idx < currCase->size(); idx ++) {
+            TestEntry entry = currCase->at(idx);
 
+            if (isConcurrentThread && 
+                !entry.isBarrier() && 
+                (entry.value % warg->threadNum != thread_id)
+            ) {
+                continue;
+            }
+            
             bool hasKey;
             std::optional<int> key;
 
             switch (entry.op){
             case TestOp::INSERT:
                 key = tree->get(entry.value);
-                if (key.has_value()) break;      
+                if (key.has_value()) break;
                 tree->insert(entry.value);
                 break;
             
@@ -264,9 +302,60 @@ private:
             case TestOp::GET:
                 key = tree->get(entry.value);
                 break;
+            
+            case TestOp::BARRIER:
+                pthread_barrier_wait(&barrier);
+                pthread_barrier_wait(&barrier2);
             }
         }
         return nullptr;
+    }
+
+    static void *runReadCheck(void *arg) {
+        WorkerArgs<T, K> *warg = static_cast<WorkerArgs<T, K>*>(arg);
+        int thread_id = warg->threadID;
+        assert(thread_id == warg->threadNum + 1);
+
+        T *concurrent_tree = warg->concurrent_tree;
+        T *seq_tree = warg->seq_tree;
+        std::vector<TestEntry> *currCase = warg->currCase;
+        
+
+        for (size_t idx = 0; idx < currCase->size(); idx ++) {
+            TestEntry entry = currCase->at(idx);
+
+            bool hasKey;
+            std::optional<int> key;
+            switch (entry.op){
+            case TestOp::GET:
+                // if (entry.value > TODO: ) {
+                //     continue;
+                // }
+                key = concurrent_tree->get(entry.value);
+                break;
+            case TestOp::BARRIER:
+                pthread_barrier_wait(&barrier);
+                compare(concurrent_tree, seq_tree);
+                pthread_barrier_wait(&barrier2);
+                break;
+            default:
+                break;
+            }
+        }
+        return nullptr;
+    }
+
+    static void compare(T *concurrent_tree, T *seq_tree) {
+        concurrent_tree->debug_checkIsValid(false);
+        seq_tree->debug_checkIsValid(false);
+
+        std::vector<K> concurrent_vec = concurrent_tree->toVec();
+        std::vector<K> seq_vec = seq_tree->toVec();
+
+        assert(concurrent_vec.size() == seq_vec.size());
+        for (size_t i = 0; i < concurrent_vec.size(); i ++) {
+            assert(concurrent_vec[i] == seq_vec[i]);
+        }
     }
 };
 
