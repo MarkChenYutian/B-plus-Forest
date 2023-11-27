@@ -83,7 +83,9 @@
         "functional": "cpp",
         "memory_resource": "cpp",
         "numeric": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "condition_variable": "cpp",
+        "thread": "cpp"
     },
-    "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
+    "cmake.sourceDirectory": "E:/15-418-Final-Project/src"
 }

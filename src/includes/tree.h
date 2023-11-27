@@ -18,6 +18,7 @@ namespace Tree {
             bool remove(T key);
             void print();
             std::optional<T> get(T key);
+            std::vector<T> toVec();
     };
 
     template <typename T>
@@ -84,6 +85,7 @@ namespace Tree {
             bool remove(T key);
             void print();
             std::optional<T> get(T key);
+            std::vector<T> toVec();
 
         private:
             // Private helper functions
@@ -114,6 +116,7 @@ namespace Tree {
             bool remove(T key);
             void print();
             std::optional<T> get(T key);
+            std::vector<T> toVec();
     };
 }
 

@@ -486,5 +486,17 @@ namespace Tree {
         
         std::cout << std::endl;
     }
+
+    template <typename T>
+    std::vector<T> SeqBPlusTree<T>::toVec() {
+        SeqNode<T> *ptr = rootPtr;
+        std::vector<T> vec;
+        for (; !ptr->isLeaf; ptr = ptr->children[0]){}
+        while (ptr != nullptr) {
+            for (T &key : ptr->keys) vec.push_back(key);
+            ptr = ptr->next;
+        }
+        return vec;
+    }
 };
 

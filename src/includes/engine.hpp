@@ -188,7 +188,6 @@ public:
             loadTestCase(testCase);
             {
                 auto tree = T(order);
-
                 WorkerArgs<T> args[threadNum];
                 pthread_t threads[threadNum];
 
@@ -209,7 +208,7 @@ public:
                     }
                 }
 
-                bool pass = tree.debug_checkIsValid(true);
+                bool pass = tree.debug_checkIsValid(false);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << i << " " << testCase << "\033[0m" << std::endl;
                 else std::cout << "\r\033[1;31mFAIL Case " << i << " " << testCase << "\033[0m" << std::endl;
             }

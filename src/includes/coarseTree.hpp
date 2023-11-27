@@ -1,3 +1,4 @@
+#include <optional>
 #include "tree.h"
 
 namespace Tree {
@@ -7,9 +8,7 @@ namespace Tree {
     }
 
     template <typename T>
-    CoarseLockBPlusTree<T>::~CoarseLockBPlusTree() {
-        tree.~SeqBPlusTree();
-    }
+    CoarseLockBPlusTree<T>::~CoarseLockBPlusTree() {}
 
     template <typename T>
     std::optional<T> CoarseLockBPlusTree<T>::get(T key) {
@@ -44,5 +43,11 @@ namespace Tree {
     bool CoarseLockBPlusTree<T>::debug_checkIsValid(bool verbose) {
         std::lock_guard<std::mutex> guard(lock);
         return tree.debug_checkIsValid(verbose);
+    }
+
+    template <typename T>
+    std::vector<T> CoarseLockBPlusTree<T>::toVec() {
+        std::lock_guard<std::mutex> guard(lock);
+        return tree.toVec();
     }
 }
