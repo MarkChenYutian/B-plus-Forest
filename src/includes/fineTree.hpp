@@ -21,13 +21,17 @@ namespace Tree {
     template <typename T>
     FineLockBPlusTree<T>::~FineLockBPlusTree() {
         if (rootPtr.numChild() != 0) rootPtr.children[0]->releaseAll();
-        // delete rootPtr;
     }
 
     template <typename T>
     void FineLockBPlusTree<T>::insert(T key) {
         size_ ++;
-        if (rootPtr.numChild() == 0) { // tree is empty before
+
+        LockDeque<T> dq = LockDeque<T>(false);
+        LockNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
+        assert(dq.isLocked(node));
+
+        if (node == &rootPtr) {
             LockNode<T> *root = new LockNode<T>(true);
             insertKey(root, key);
 
@@ -35,51 +39,70 @@ namespace Tree {
             rootPtr.isLeaf = false;
             rootPtr.consolidateChild();
         } else {
-            std::deque<std::shared_mutex*> dq;
-            LockNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
             insertKey(node, key);
-            if (node->numKeys() >= ORDER_) splitNode(node, key);
+
+            if (node->numKeys() >= ORDER_) {
+                assert(dq.isLocked(node->parent));
+                splitNode(node, key);
+            }
         }
+
+        dq.releaseAllWriteLocks();
     }
 
     template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(LockNode<T>* node, T key) {
+    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(LockNode<T>* node, T key, LockDeque<T> &dq) {
         assert(node == &rootPtr);
-        while (!node->isLeaf) {
-            /** getGTKeyIdx will have index = 0 if node is dummy node */
-            size_t index = node->getGtKeyIdx(key);
-            if (node == &rootPtr) {
-                assert(index == 0);
-            }
-            node = node->children[index];
-        }
-        return node;
-    }
+        dq.retrieveLock(node);
 
-    template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq) {
-        assert(node == &rootPtr);
         while (!node->isLeaf) {
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            if (node == &rootPtr) {
-                assert(index == 0);
-            }
-            node = node->children[index];
+            LockNode<T> *child = node->children[index];
+
+            dq.retrieveLock(child);
+            dq.releasePrevReadLocks();
+
+            node = child;
         }
         return node;
     }
 
     template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq) {
+    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(LockNode<T>* node, T key, LockDeque<T> &dq) {
         assert(node == &rootPtr);
+        dq.retrieveLock(node);
+
         while (!node->isLeaf) {
+            if (node->numKeys() + 1 < ORDER_) {
+                dq.releasePrevWriteLocks();
+            }
+
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            if (node == &rootPtr) {
-                assert(index == 0);
+            LockNode<T> *child = node->children[index];
+            dq.retrieveLock(child);
+            
+            node = child;
+        }
+        
+        return node;
+    }
+
+    template <typename T>
+    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(LockNode<T>* node, T key, LockDeque<T> &dq) {
+        assert(node == &rootPtr);
+        dq.retrieveLock(node);
+
+        while (!node->isLeaf) {
+            if (node->numKeys() > (ORDER_ / 2)) {
+                dq.releasePrevWriteLocks();
             }
-            node = node->children[index];
+            /** getGTKeyIdx will have index = 0 if node is dummy node */
+            size_t index = node->getGtKeyIdx(key);
+            LockNode<T> *child = node->children[index];
+            dq.retrieveLock(child);
+            node = child;
         }
         return node;
     }
@@ -247,17 +270,26 @@ namespace Tree {
 
     template <typename T>
     std::optional<T> FineLockBPlusTree<T>::get(T key) {
-        LockNode<T> *node = findLeafNodeRead(&rootPtr, key);
+        LockDeque<T> dq = LockDeque<T>(true);
+        LockNode<T> *node = findLeafNodeRead(&rootPtr, key, dq);
+
+        assert(dq.isLocked(node));
+
         if (node == &rootPtr) {
+            dq.releaseAllReadLocks();
             return std::nullopt;
         }
+
         assert(node != &rootPtr);
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
         if (index < node->numKeys() && node->keys[index] == key) {
+            dq.releaseAllReadLocks();
             return key; // Key found in this node
-        } 
+        }
+
+        dq.releaseAllReadLocks();
         return std::nullopt; // Key not found
     }
 
@@ -273,14 +305,16 @@ namespace Tree {
 
     template <typename T>
     bool FineLockBPlusTree<T>::remove(T key) {
-        std::deque<std::shared_mutex*> dq;
+        LockDeque<T> dq = LockDeque<T>(false);
         LockNode<T>* node = findLeafNodeDelete(&rootPtr, key, dq);
+        assert(dq.isLocked(node));
         /**
          * NOTE: If the tree is empty, then node must be rootPtr
          * and since rootPtr have no key, removeFromLeaf(rootPtr, key)
          * must return false.
          */
         if (!removeFromLeaf(node, key)) {
+            dq.releaseAllWriteLocks();
             return false;
         }
         
@@ -291,31 +325,42 @@ namespace Tree {
          * the tree will be empty and rootPtr replaced by nullptr 
          * */
         if (node->parent == &rootPtr && node->numKeys() == 0) {
+            assert(dq.isLocked(&rootPtr));
+
             rootPtr.children.clear();
             rootPtr.isLeaf = true;
-            delete node; // TODO: check if correct
+
+            
+            dq.popAndDelete(node);
+            // delete node; // TODO: check if correct
+
+            dq.releaseAllWriteLocks();
             return true;
         }
         
         /** 
-         * Case 2a: If the node is less than half full, 
+         * Case 2: If the node is less than half full, 
          * borrow (rebalance) the tree 
          * */
-        if (!isHalfFull(node)) {
-            removeBorrow(node);
-        }
-        
+        if (!isHalfFull(node)) removeBorrow(node, dq);
+
+        dq.releaseAllWriteLocks();
         return true;
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeBorrow(LockNode<T> *node) {
+    void FineLockBPlusTree<T>::removeBorrow(LockNode<T> *node, LockDeque<T> &dq) {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == &rootPtr) {
             if (node->numKeys() == 0) {
+                assert(dq.isLocked(&rootPtr));
+                
                 rootPtr.children[0] = node->children[0];
                 rootPtr.consolidateChild();
-                delete node;
+
+                /** TODO: ????? */
+                dq.popAndDelete(node);
+                // delete node;
             }
             return;
         };
@@ -368,7 +413,7 @@ namespace Tree {
                 /**
                  * Case 2. Have to merge with left node
                  */
-                removeMerge(node);
+                removeMerge(node, dq);
             }
         } else {
             assert(node->childIndex + 1 < node->parent->numChild());
@@ -415,14 +460,14 @@ namespace Tree {
                 /**
                  * Case 4. Merge with right
                  */
-                removeMerge(node);
+                removeMerge(node, dq);
             }
 
         }
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeMerge(LockNode<T>* node) {
+    void FineLockBPlusTree<T>::removeMerge(LockNode<T>* node, LockDeque<T> &dq) {
         bool leftMergeToRight;
         LockNode<T> *leftNode, *rightNode, *parent;
 
@@ -507,7 +552,8 @@ namespace Tree {
             rightNode->prev = leftNode->prev;
             if (leftNode->prev != nullptr) leftNode->prev->next = rightNode;
 
-            delete leftNode;
+            // delete leftNode;
+            dq.popAndDelete(leftNode);
         } else { 
             // Right merge to Left
             size_t index = leftNode->childIndex;
@@ -536,7 +582,8 @@ namespace Tree {
             leftNode->next = rightNode->next;
             if (rightNode->next != nullptr) rightNode->next->prev = leftNode;
 
-            delete rightNode;
+            // delete rightNode;
+            dq.popAndDelete(rightNode);
         }
         parent->consolidateChild();
 
@@ -545,7 +592,7 @@ namespace Tree {
          * NOTE: If after merging, the parent is less than half full, to rebalance the B+ tree
          * we will need to borrow for the parent node.
          */
-        if (!isHalfFull(parent)) removeBorrow(parent);
+        if (!isHalfFull(parent)) removeBorrow(parent, dq);
     }
     
     template <typename T>

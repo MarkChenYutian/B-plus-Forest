@@ -27,7 +27,8 @@ namespace Tree {
     template <typename T>
     void SeqBPlusTree<T>::insert(T key) {
         size_ ++;
-        if (rootPtr.numChild() == 0) { // tree is empty before
+        SeqNode<T> *node = findLeafNode(&rootPtr, key);
+        if (node == &rootPtr) {
             SeqNode<T> *root = new SeqNode<T>(true);
             insertKey(root, key);
 
@@ -35,7 +36,6 @@ namespace Tree {
             rootPtr.isLeaf = false;
             rootPtr.consolidateChild();
         } else {
-            SeqNode<T> *node = findLeafNode(&rootPtr, key);
             insertKey(node, key);
             if (node->numKeys() >= ORDER_) splitNode(node, key);
         }

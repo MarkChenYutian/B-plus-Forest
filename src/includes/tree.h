@@ -67,7 +67,6 @@ namespace Tree {
     template <typename T>
     struct LockNode {
         std::shared_mutex latch;
-        // std::mutex write_latch;
 
         bool isLeaf;                        // Check if node is leaf node
         bool isDummy;                       // Check if node is dummy node
@@ -102,6 +101,65 @@ namespace Tree {
             size_t index = 0;
             while (index < numKeys() && keys[index] <= key) index ++;
             return index;
+        }
+    };
+
+    template <typename T>
+    struct LockDeque {
+        bool isShared;
+        std::deque<LockNode<T>*> nodes;
+        
+        LockDeque(bool isShared = false): isShared(isShared){}
+        void retrieveLock(LockNode<T> *ptr) {
+            if (isShared) ptr->latch.lock_shared();
+            else ptr->latch.lock();
+            nodes.push_back(ptr);
+        }
+        bool isLocked(LockNode<T> *ptr) {
+            for (const auto node : nodes) {
+                if (node == ptr) return true;
+            }
+            return false;
+        }
+        void releaseAllWriteLocks() {
+            assert (!isShared);
+            while (!nodes.empty()) {
+                nodes.front()->latch.unlock();
+                nodes.pop_front();
+            }
+        }
+        void releasePrevWriteLocks() {
+            assert (!isShared);
+            while (nodes.size() > 1) {
+                nodes.front()->latch.unlock();
+                nodes.pop_front();
+            }
+        }
+        void releaseAllReadLocks() {
+            assert (isShared);
+            while (!nodes.empty()) {
+                nodes.front()->latch.unlock_shared();
+                nodes.pop_front();
+            }
+        }
+        void releasePrevReadLocks() {
+            assert (isShared);
+            while (nodes.size() > 1) {
+                nodes.front()->latch.unlock_shared();
+                nodes.pop_front();
+            }
+        }
+        void popAndDelete(LockNode<T> *ptr) {
+            assert(!isShared);
+            // assert(isLocked(ptr));
+            assert(isLocked(ptr->parent));
+            for (size_t idx = 0; idx < nodes.size(); idx ++) {
+                if (nodes[idx] == ptr) {
+                    nodes.erase(nodes.begin() + idx);
+                    break;
+                }
+            }
+            delete ptr;
         }
     };
 
@@ -183,9 +241,9 @@ namespace Tree {
         
         private:
             // Private helper functions
-            LockNode<T>* findLeafNodeInsert(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq);
-            LockNode<T>* findLeafNodeDelete(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq);
-            LockNode<T>* findLeafNodeRead(LockNode<T>* node, T key);
+            LockNode<T>* findLeafNodeInsert(LockNode<T>* node, T key, LockDeque<T> &dq);
+            LockNode<T>* findLeafNodeDelete(LockNode<T>* node, T key, LockDeque<T> &dq);
+            LockNode<T>* findLeafNodeRead(LockNode<T>* node, T key, LockDeque<T> &dq);
 
             void splitNode(LockNode<T>* node, T key);
             void insertKey(LockNode<T>* node, T key);
@@ -194,8 +252,8 @@ namespace Tree {
             bool isHalfFull(LockNode<T>* node);
             bool moreHalfFull(LockNode<T>* node);
 
-            void removeBorrow(LockNode<T>* node);
-            void removeMerge(LockNode<T>* node);
+            void removeBorrow(LockNode<T>* node, LockDeque<T> &dq);
+            void removeMerge(LockNode<T>* node, LockDeque<T> &dq);
     };
 }
 

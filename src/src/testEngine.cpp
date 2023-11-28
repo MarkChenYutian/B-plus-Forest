@@ -17,13 +17,13 @@ int main() {
     }
 
     // std::vector<std::string> Cases = {"../test/large_0.case"};
-    // std::vector<std::string> Cases = {"../test/dead.case"};
+    // std::vector<std::string> Cases = {"../test/IAndG_0.case"};
     
 
     // auto runner = Engine::correctnessEngine<Tree::SeqBPlusTree<int>, int>(Cases, 3, 4);
     // auto runner = Engine::threadingEngine<Tree::CoarseLockBPlusTree<int>, int>(Cases, 3, 4);
-    auto runner = Engine::correctnessEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 1);
-    // auto runner = Engine::threadingEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 3, 8);
+    // auto runner = Engine::correctnessEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 1);
+    auto runner = Engine::threadingEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 8);
     runner.Run();
     return 0;
 }
