@@ -89,7 +89,9 @@
         "barrier": "cpp",
         "numbers": "cpp",
         "semaphore": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "shared_mutex": "cpp",
+        "stack": "cpp"
     },
     "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }

@@ -52,13 +52,10 @@ struct TestEntry {
         value = std::stoi(tok);
 
         std::getline(iss, tok, ',');
-        try
-        {
-            expect = std::stoi(tok);
-        }
-        catch(const std::exception& e)
-        {
+        if (tok == "NONE") {
             expect = std::nullopt;
+        } else {
+            expect = std::stoi(tok);
         }
     }
 };
@@ -129,7 +126,7 @@ private:
         }
     }
 
-    bool runTestCase(T tree) {
+    bool runTestCase(T &tree) {
         for (size_t idx = 0; idx < currCase.size(); idx ++) {
             TestEntry entry = currCase[idx];
 
@@ -345,17 +342,24 @@ private:
         return nullptr;
     }
 
-    static void compare(T *concurrent_tree, T *seq_tree) {
+    static bool compare(T *concurrent_tree, T *seq_tree) {
         concurrent_tree->debug_checkIsValid(false);
         seq_tree->debug_checkIsValid(false);
 
         std::vector<K> concurrent_vec = concurrent_tree->toVec();
         std::vector<K> seq_vec = seq_tree->toVec();
 
-        assert(concurrent_vec.size() == seq_vec.size());
-        for (size_t i = 0; i < concurrent_vec.size(); i ++) {
-            assert(concurrent_vec[i] == seq_vec[i]);
+        // assert(concurrent_vec.size() == seq_vec.size());
+        if (concurrent_vec.size() != seq_vec.size()) {
+            throw std::runtime_error("concurrent vec size different from seq_vec size");
         }
+        for (size_t i = 0; i < concurrent_vec.size(); i ++) {
+            // assert(concurrent_vec[i] == seq_vec[i]);
+            if (concurrent_vec[i] != seq_vec[i]) {
+                throw std::runtime_error("concurrent_vec different from seq_vec");
+            }
+        }
+        return true;
     }
 };
 

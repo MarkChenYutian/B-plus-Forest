@@ -6,6 +6,7 @@ project(MyCppProject)
 
 # Specify the C++ standard (e.g., C++17)
 set(CMAKE_CXX_STANDARD 17)
+set(ENV{TSAN_OPTIONS} "second_deadlock_stack=1")
 
 # Define source files
 set(SOURCES
@@ -17,7 +18,9 @@ set(HEADERS
     includes/tree.h
     includes/seqTree.hpp
     includes/coarseTree.hpp
+    includes/fineTree.hpp
     includes/node.hpp
+    includes/lockNode.hpp
     includes/engine.hpp
 )
 
@@ -53,8 +56,8 @@ set_target_properties(BtreeUnitTest PROPERTIES LINK_FLAGS "-fsanitize=address,un
 # Test engine build
 add_executable(BtreeTestEngine ${HEADERS} ${ENGINE_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-target_compile_options(BtreeTestEngine PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g)
-set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=address,undefined,leak")
+target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g)
+set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,thread")
 
 
 find_package(Threads REQUIRED)

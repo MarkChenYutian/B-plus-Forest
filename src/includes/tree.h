@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <deque>
 #include <mutex>
+#include <atomic>
+#include <shared_mutex>
 #include <memory>
 
 namespace Tree {
@@ -68,7 +70,42 @@ namespace Tree {
      */
     template <typename T>
     struct LockNode {
+        std::shared_mutex latch;
+        // std::mutex write_latch;
 
+        bool isLeaf;                        // Check if node is leaf node
+        int childIndex;                     // Which child am I in parent? (-1 if no parent)
+        std::deque<T> keys;                 // Keys
+        std::deque<LockNode<T>*> children;  // Children
+        LockNode<T>* parent;                // Pointer to parent node
+        LockNode<T>* next;                  // Pointer to left sibling
+        LockNode<T>* prev;                  // Pointer to right sibling
+
+        LockNode(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr) {};
+        /**
+         * TODO: Maybe need to grab the unique lock on destruct?
+         */
+        // ~LockNode() {std::unique_lock lock(read_latch);}
+
+        /**
+         * Regenerate the node's keys based on current child.
+         * NOTE: SIDE_EFFECT - will delete empty children automatically!
+         */
+        void rebuild();
+        void printKeys();
+        void releaseAll();
+        void consolidateChild();
+        bool debug_checkParentPointers();
+        bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
+        bool debug_checkChildCnt(int ordering);
+
+        inline size_t numKeys()  {return keys.size();}
+        inline size_t numChild() {return children.size();}
+        inline size_t getGtKeyIdx(T key) {
+            size_t index = 0;
+            while (index < numKeys() && keys[index] <= key) index ++;
+            return index;
+        }
     };
 
     template<typename T>
@@ -129,7 +166,11 @@ namespace Tree {
     template<typename T>
     class FineLockBPlusTree : public ITree<T> {
         private:
-            SeqBPlusTree<T> tree;
+            LockNode<T>* rootPtr;
+            int ORDER_;
+            std::atomic<int> size_ = 0;
+            std::shared_mutex rootLock;
+        
         public:
             FineLockBPlusTree(int order = 3);
             ~FineLockBPlusTree();
@@ -141,6 +182,22 @@ namespace Tree {
             void print();
             std::optional<T> get(T key);
             std::vector<T> toVec();
+        
+        private:
+            // Private helper functions
+            LockNode<T>* findLeafNodeInsert(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq);
+            LockNode<T>* findLeafNodeDelete(LockNode<T>* node, T key, std::deque<std::shared_mutex*> &dq);
+            LockNode<T>* findLeafNodeRead(LockNode<T>* node, T key);
+
+            void splitNode(LockNode<T>* node, T key);
+            void insertKey(LockNode<T>* node, T key);
+            bool removeFromLeaf(LockNode<T>* node, T key);
+
+            bool isHalfFull(LockNode<T>* node);
+            bool moreHalfFull(LockNode<T>* node);
+
+            void removeBorrow(LockNode<T>* node);
+            void removeMerge(LockNode<T>* node);
     };
 }
 
