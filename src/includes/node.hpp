@@ -63,7 +63,7 @@ namespace Tree {
                 return false;
         }
 
-        return  !(this->parent != nullptr && this->parent->children[childIndex] != this);
+        return this->parent->children[childIndex] == this;
     }
     
     template <typename T>

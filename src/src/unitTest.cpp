@@ -22,13 +22,19 @@ int main() {
 
     {TESTCASE("Insert sanity test")
         auto tree = Tree::SeqBPlusTree<int>(3);
+        assertNoValue(&tree, 0);
         tree.insert(15);
         tree.insert(10);
         tree.insert(20);
+        assertHasValue(&tree, 20);
+        assertHasValue(&tree, 15);
+        assertHasValue(&tree, 10);
         tree.insert(12);
         tree.insert(17);
         tree.debug_checkIsValid(true);
         tree.insert(18);
+        assertHasValue(&tree, 18);
+        assertNoValue(&tree, 16);
         tree.debug_checkIsValid(true);
         tree.insert(16);
         tree.insert(14);
@@ -36,7 +42,19 @@ int main() {
         assertHasValue(&tree, 17);
         assertNoValue(&tree, 21);
     }
-
+    
+    {TESTCASE("Delete all element leak test")
+        auto tree = Tree::SeqBPlusTree<int>(3);
+        tree.insert(15);
+        tree.insert(10);
+        tree.insert(20);
+        tree.remove(15);
+        tree.remove(10);
+        tree.remove(20);
+        tree.debug_checkIsValid(true);
+    }
+    
+    
     {TESTCASE("Simple Remove")
         auto tree = Tree::SeqBPlusTree<int>(3);
         tree.insert(15);

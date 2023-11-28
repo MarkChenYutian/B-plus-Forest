@@ -29,6 +29,7 @@ namespace Tree {
      */
     struct SeqNode {
         bool isLeaf;                       // Check if node is leaf node
+        bool isDummy;                      // Check if node is dummy node
         int childIndex;                    // Which child am I in parent? (-1 if no parent)
         std::deque<T> keys;                // Keys
         std::deque<SeqNode<T>*> children;  // Children
@@ -36,7 +37,7 @@ namespace Tree {
         SeqNode<T>* next;                  // Pointer to left sibling
         SeqNode<T>* prev;                  // Pointer to right sibling
 
-        SeqNode(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr) {};
+        SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
         /**
          * Regenerate the node's keys based on current child.
          * NOTE: SIDE_EFFECT - will delete empty children automatically!

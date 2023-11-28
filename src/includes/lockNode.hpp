@@ -125,6 +125,9 @@ namespace Tree {
 
     template <typename T>
     void LockNode<T>::consolidateChild() {
+        /** 
+         * TODO: May need to retrieve reader lock for the children?
+         */
         for (size_t id = 0; id < numChild(); id ++) {
             children[id]->parent = this;
             children[id]->childIndex = id;
