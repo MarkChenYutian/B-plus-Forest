@@ -6,13 +6,11 @@
 
 namespace Tree {
     template<typename T>
-    SeqBPlusTree<T>::SeqBPlusTree(int order): ORDER_(order), size_(0) {
-        rootPtr = new SeqNode<T>(true, true); // Dummy node, always there
-    }
+    SeqBPlusTree<T>::SeqBPlusTree(int order): ORDER_(order), size_(0), rootPtr(SeqNode<T>(true, true)) {}
 
     template <typename T>
     SeqNode<T> *SeqBPlusTree<T>::getRoot() {
-        return rootPtr;
+        return &rootPtr;
     }
 
     template <typename T>
@@ -22,22 +20,22 @@ namespace Tree {
 
     template <typename T>
     SeqBPlusTree<T>::~SeqBPlusTree() {
-        if (rootPtr->numChild() != 0) rootPtr->children[0]->releaseAll();
-        delete rootPtr;
+        if (rootPtr.numChild() != 0) rootPtr.children[0]->releaseAll();
+        // delete rootPtr;
     }
 
     template <typename T>
     void SeqBPlusTree<T>::insert(T key) {
         size_ ++;
-        if (rootPtr->numChild() == 0) { // tree is empty before
+        if (rootPtr.numChild() == 0) { // tree is empty before
             SeqNode<T> *root = new SeqNode<T>(true);
             insertKey(root, key);
 
-            rootPtr->children.push_back(root);
-            rootPtr->isLeaf = false;
-            rootPtr->consolidateChild();
+            rootPtr.children.push_back(root);
+            rootPtr.isLeaf = false;
+            rootPtr.consolidateChild();
         } else {
-            SeqNode<T> *node = findLeafNode(rootPtr, key);
+            SeqNode<T> *node = findLeafNode(&rootPtr, key);
             insertKey(node, key);
             if (node->numKeys() >= ORDER_) splitNode(node, key);
         }
@@ -45,11 +43,11 @@ namespace Tree {
 
     template <typename T>
     SeqNode<T>* SeqBPlusTree<T>::findLeafNode(SeqNode<T>* node, T key) {
-        assert(node == rootPtr);
+        assert(node == &rootPtr);
         while (!node->isLeaf) {
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            if (node == rootPtr) {
+            if (node == &rootPtr) {
                 assert(index == 0);
             }
             node = node->children[index];
@@ -65,7 +63,7 @@ namespace Tree {
 
     template <typename T>
     void SeqBPlusTree<T>::splitNode(SeqNode<T>* node, T key) {
-        assert(node != rootPtr);
+        assert(node != &rootPtr);
         SeqNode<T> *new_node = new SeqNode<T>(node->isLeaf);
         auto middle   = node->numKeys() / 2;
         auto mid_key  = node->keys[middle];
@@ -94,13 +92,14 @@ namespace Tree {
          * 
          * If newNodeOnRight -> (node, new_node)
          */
-        bool newNodeOnRight = (node->parent == rootPtr) || (node->childIndex != node->parent->numChild() - 1);
+        bool newNodeOnRight = (node->parent == &rootPtr) || (node->childIndex != node->parent->numChild() - 1);
 
         if (node->isLeaf) {
             /**
              * Case 1: Leaf node split - trivial
              * After splitting, the original "node" becomes [node, new_node]
              **/
+
             if (newNodeOnRight) {
                 new_node->keys.insert(new_node->keys.begin(), node_key_middle, node_key_end);
                 node->keys.erase(node_key_middle, node_key_end);
@@ -120,7 +119,7 @@ namespace Tree {
                 new_node->children.insert(new_node->children.begin(), node_child_middle+1, node_child_end);
                 node->children.erase(node_child_middle+1, node_child_end);
             } else {
-                new_node->keys.insert(new_node->keys.begin(), node_key_begin, node_key_middle+1);
+                new_node->keys.insert(new_node->keys.begin(), node_key_begin, node_key_middle);
                 node->keys.erase(node_key_begin, node_key_middle+1);
 
                 new_node->children.insert(new_node->children.begin(), node_child_begin, node_child_middle+1);
@@ -135,7 +134,7 @@ namespace Tree {
          * After splitting the node directly, we need to register the new_node into
          * the B+ tree structure.
          */
-        if (node->parent == rootPtr) {
+        if (node->parent == &rootPtr) {
             /**
              * Case 1: The root is splitted, so we need to create a new root node
              * above both of them.
@@ -158,9 +157,9 @@ namespace Tree {
             new_root->consolidateChild();
             
             /** Update the dummy node */
-            new_root->parent = rootPtr;
+            new_root->parent = &rootPtr;
             new_root->childIndex = 0;
-            rootPtr->children[0] = new_root;
+            rootPtr.children[0] = new_root;
             insertKey(new_root, mid_key);
         } else {
             /**
@@ -170,13 +169,14 @@ namespace Tree {
              */
             SeqNode<T> *parent = node->parent;
             size_t index = node->childIndex;
-            parent->keys.insert(parent->keys.begin() + index, mid_key);
+            
             if (newNodeOnRight) {
+                parent->keys.insert(parent->keys.begin()+index, mid_key);
                 parent->children.insert(parent->children.begin() + index + 1, new_node);
             } else {
+                parent->keys.insert(parent->keys.begin()+index, mid_key);
                 parent->children.insert(parent->children.begin() + index, new_node);
-            }
-            
+            }            
 
             /**
              * Since we inserted children in the middle of parent node, we have to rebuild the 
@@ -220,11 +220,11 @@ namespace Tree {
 
     template <typename T>
     std::optional<T> SeqBPlusTree<T>::get(T key) {
-        SeqNode<T> *node = findLeafNode(rootPtr, key);
-        if (node == rootPtr) {
+        SeqNode<T> *node = findLeafNode(&rootPtr, key);
+        if (node == &rootPtr) {
             return std::nullopt;
         }
-        assert(node != rootPtr);
+        assert(node != &rootPtr);
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
@@ -246,23 +246,25 @@ namespace Tree {
 
     template <typename T>
     bool SeqBPlusTree<T>::remove(T key) {
-        SeqNode<T>* node = findLeafNode(rootPtr, key);
+        SeqNode<T>* node = findLeafNode(&rootPtr, key);
         /**
          * NOTE: If the tree is empty, then node must be rootPtr
          * and since rootPtr have no key, removeFromLeaf(rootPtr, key)
          * must return false.
          */
-        if (!removeFromLeaf(node, key)) return false;
+        if (!removeFromLeaf(node, key)) {
+            return false;
+        }
         
-        assert(node != rootPtr);
+        assert(node != &rootPtr);
         size_ --;
         /** 
          * Case 1: Removing the last element of tree
          * the tree will be empty and rootPtr replaced by nullptr 
          * */
-        if (node->parent == rootPtr && node->numKeys() == 0) {
-            rootPtr->children.clear();
-            rootPtr->isLeaf = true;
+        if (node->parent == &rootPtr && node->numKeys() == 0) {
+            rootPtr.children.clear();
+            rootPtr.isLeaf = true;
             delete node; // TODO: check if correct
             return true;
         }
@@ -281,10 +283,10 @@ namespace Tree {
     template <typename T>
     void SeqBPlusTree<T>::removeBorrow(SeqNode<T> *node) {
         // Edge case: root has no sibling node to borrow with
-        if (node->parent == rootPtr) {
+        if (node->parent == &rootPtr) {
             if (node->numKeys() == 0) {
-                rootPtr->children[0] = node->children[0];
-                rootPtr->consolidateChild();
+                rootPtr.children[0] = node->children[0];
+                rootPtr.consolidateChild();
                 delete node;
             }
             return;
@@ -378,11 +380,11 @@ namespace Tree {
                     /**
                      * Case 3b. Borrow from right, where both are leaves
                      */
-                    T keySiblingMove = *(node->next->keys.begin());
+                    T keySiblingMove = node->next->keys[0];
 
-                    node->parent->keys[index] = keySiblingMove;
                     node->keys.push_back(keySiblingMove);
                     node->next->keys.pop_front();
+                    node->parent->keys[index] = node->next->keys[0];
                 }
             } else {
                 /**
@@ -411,8 +413,6 @@ namespace Tree {
          *  1. Every parent have at least 2 children
          *  2. One of the sibling (left / right) must be of same parent by (1)
          */
-
-        // leftMergeToRight = 
 
         if (node->parent->numChild() == 2) {
             // node->parent->parent locked
@@ -513,6 +513,7 @@ namespace Tree {
 
             delete rightNode;
         }
+        parent->consolidateChild();
 
 
         /**
@@ -534,25 +535,24 @@ namespace Tree {
 
     template <typename T>
     bool SeqBPlusTree<T>::debug_checkIsValid(bool verbose) {
-        // if (rootPtr == nullptr) return (size_ == 0);
-        if (!rootPtr->isDummy) return false;
-        if (rootPtr->numChild() == 0) return size_ == 0;
-        if (rootPtr->numChild() > 1) return false;
+        if (!rootPtr.isDummy) return false;
+        if (rootPtr.numChild() == 0) return size_ == 0;
+        if (rootPtr.numChild() > 1) return false;
 
         // checking parent child pointers
-        assert(rootPtr->children[0] != nullptr);
-        bool isValidParentPtr = rootPtr->children[0]->debug_checkParentPointers();
+        assert(rootPtr.children[0] != nullptr);
+        bool isValidParentPtr = rootPtr.children[0]->debug_checkParentPointers();
         if (!isValidParentPtr) return false;
 
         // checking ordering
-        bool isValidOrdering = rootPtr->children[0]->debug_checkOrdering(std::nullopt, std::nullopt);
+        bool isValidOrdering = rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt);
         if (!isValidOrdering)  return false;
 
         // checking number of key/children
-        bool isValidChildCnt = rootPtr->children[0]->debug_checkChildCnt(ORDER_);
+        bool isValidChildCnt = rootPtr.children[0]->debug_checkChildCnt(ORDER_);
         if (!isValidChildCnt) return false;
 
-        Tree::SeqNode<T>* src = rootPtr->children[0];
+        Tree::SeqNode<T>* src = rootPtr.children[0];
         do {
             if (src->numChild() == 0) break;
             src = src->children[0];
@@ -598,11 +598,11 @@ namespace Tree {
     void SeqBPlusTree<T>::print() {
         
         std::cout << "[Sequential B+ Tree]" << std::endl;
-        if (!rootPtr) {
+        if (rootPtr.numChild() == 0) {
             std::cout << "(Empty)" << std::endl;
             return;
         }
-        SeqNode<T>* src = rootPtr;
+        SeqNode<T>* src = &rootPtr;
         int level_cnt = 0;
         do {
             SeqNode<T>* ptr = src;
@@ -623,7 +623,7 @@ namespace Tree {
 
     template <typename T>
     std::vector<T> SeqBPlusTree<T>::toVec() {
-        SeqNode<T> *ptr = rootPtr;
+        SeqNode<T> *ptr = &rootPtr;
         std::vector<T> vec;
         if (ptr == nullptr) return vec;
         

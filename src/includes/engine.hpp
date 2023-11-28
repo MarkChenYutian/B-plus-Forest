@@ -129,8 +129,12 @@ private:
     bool runTestCase(T &tree) {
         for (size_t idx = 0; idx < currCase.size(); idx ++) {
             TestEntry entry = currCase[idx];
+            // tree.print();
+            // std::cout << "<<<<<<<<<<<<<<<<<<<<<<<<\n\n" << std::endl;
+            // entry.print();
 
             if (idx % 1000 == 0 && !tree.debug_checkIsValid(false)) return false;
+            // if (!tree.debug_checkIsValid(true)) return false;
 
             bool hasKey;
             std::optional<int> key;
@@ -145,6 +149,7 @@ private:
                 if (hasKey != entry.expect.has_value()) {
                     std::cout << "\n(REMOVE) FAILED AT LINE " << idx << " output: " << hasKey <<std::endl;
                     entry.print();
+                    tree.print();
                     return false;
                 }
                 break;
@@ -154,6 +159,7 @@ private:
                 if (key.has_value() != entry.expect.has_value()) {
                     std::cout << "\n(GET, CASE1) FAILED AT LINE " << idx << std::endl;
                     entry.print();
+                    tree.print();
                     return false;
                 }
                 if (key.has_value() && (key.value() != entry.expect.value())) {
@@ -325,9 +331,6 @@ private:
             std::optional<int> key;
             switch (entry.op){
             case TestOp::GET:
-                // if (entry.value > TODO: ) {
-                //     continue;
-                // }
                 key = concurrent_tree->get(entry.value);
                 break;
             case TestOp::BARRIER:
@@ -349,13 +352,13 @@ private:
         std::vector<K> concurrent_vec = concurrent_tree->toVec();
         std::vector<K> seq_vec = seq_tree->toVec();
 
-        // assert(concurrent_vec.size() == seq_vec.size());
         if (concurrent_vec.size() != seq_vec.size()) {
             throw std::runtime_error("concurrent vec size different from seq_vec size");
         }
         for (size_t i = 0; i < concurrent_vec.size(); i ++) {
-            // assert(concurrent_vec[i] == seq_vec[i]);
             if (concurrent_vec[i] != seq_vec[i]) {
+                concurrent_tree->print();
+                seq_tree->print();
                 throw std::runtime_error("concurrent_vec different from seq_vec");
             }
         }

@@ -56,8 +56,10 @@ set_target_properties(BtreeUnitTest PROPERTIES LINK_FLAGS "-fsanitize=address,un
 # Test engine build
 add_executable(BtreeTestEngine ${HEADERS} ${ENGINE_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g)
-set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,thread")
+# target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g)
+# set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,thread")
+target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
+set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,address")
 
 
 find_package(Threads REQUIRED)

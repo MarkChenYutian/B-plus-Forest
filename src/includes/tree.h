@@ -38,11 +38,6 @@ namespace Tree {
         SeqNode<T>* prev;                  // Pointer to right sibling
 
         SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
-        /**
-         * Regenerate the node's keys based on current child.
-         * NOTE: SIDE_EFFECT - will delete empty children automatically!
-         */
-        void rebuild();
         void printKeys();
         void releaseAll();
         void consolidateChild();
@@ -75,6 +70,7 @@ namespace Tree {
         // std::mutex write_latch;
 
         bool isLeaf;                        // Check if node is leaf node
+        bool isDummy;                       // Check if node is dummy node
         int childIndex;                     // Which child am I in parent? (-1 if no parent)
         std::deque<T> keys;                 // Keys
         std::deque<LockNode<T>*> children;  // Children
@@ -82,7 +78,7 @@ namespace Tree {
         LockNode<T>* next;                  // Pointer to left sibling
         LockNode<T>* prev;                  // Pointer to right sibling
 
-        LockNode(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr) {};
+        LockNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
         /**
          * TODO: Maybe need to grab the unique lock on destruct?
          */
@@ -112,7 +108,7 @@ namespace Tree {
     template<typename T>
     class SeqBPlusTree : public ITree<T> {
         private:
-            SeqNode<T>* rootPtr;
+            SeqNode<T> rootPtr;
             int ORDER_;
             int size_;
 
@@ -167,7 +163,7 @@ namespace Tree {
     template<typename T>
     class FineLockBPlusTree : public ITree<T> {
         private:
-            LockNode<T>* rootPtr;
+            LockNode<T> rootPtr;
             int ORDER_;
             std::atomic<int> size_ = 0;
             std::shared_mutex rootLock;
@@ -183,6 +179,7 @@ namespace Tree {
             void print();
             std::optional<T> get(T key);
             std::vector<T> toVec();
+            LockNode<T> *getRoot();
         
         private:
             // Private helper functions
