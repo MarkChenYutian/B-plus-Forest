@@ -9,19 +9,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(ENV{TSAN_OPTIONS} "second_deadlock_stack=1")
 
 # Define source files
-set(SOURCES
-    src/main.cpp
-)
+set(SOURCES src/main.cpp)
 
 # Define header files
 set(HEADERS
     includes/tree.h
+    includes/freeTree.h
     includes/seqTree.hpp
     includes/coarseTree.hpp
     includes/fineTree.hpp
     includes/node.hpp
     includes/lockNode.hpp
     includes/engine.hpp
+    includes/freeTree.hpp
 )
 
 
@@ -56,11 +56,17 @@ set_target_properties(BtreeUnitTest PROPERTIES LINK_FLAGS "-fsanitize=address,un
 # Test engine build
 add_executable(BtreeTestEngine ${HEADERS} ${ENGINE_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-# target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g)
-# set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,thread")
 target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
 set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,address")
 
 
+# PalmTree Test build
+add_executable(PalmTreeTest ${HEADERS} ${SOURCES})
+# Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
+target_compile_options(PalmTreeTest PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
+set_target_properties(PalmTreeTest PROPERTIES LINK_FLAGS "-fsanitize=undefined,leak,address")
+
+
 find_package(Threads REQUIRED)
 target_link_libraries(BtreeTestEngine PRIVATE Threads::Threads)
+target_link_libraries(PalmTreeTest PRIVATE Threads::Threads)

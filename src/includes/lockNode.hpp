@@ -89,8 +89,7 @@ namespace Tree {
                 return false;
             }
         }
-        // if parent->prev == nullptr lower = null
-        // else lower = parent->prev->last key
+        
         if (!this->isLeaf) {
             for (int i = 0; i < numChild(); i ++) {\
                 if (i == 0) {
@@ -125,9 +124,6 @@ namespace Tree {
 
     template <typename T>
     void LockNode<T>::consolidateChild() {
-        /** 
-         * TODO: May need to retrieve reader lock for the children?
-         */
         for (size_t id = 0; id < numChild(); id ++) {
             children[id]->parent = this;
             children[id]->childIndex = id;

@@ -1,5 +1,4 @@
-#ifndef TREE_H
-#define TREE_H
+#pragma once
 
 #include <iostream>
 #include <algorithm>
@@ -8,6 +7,8 @@
 #include <atomic>
 #include <shared_mutex>
 #include <memory>
+#include <optional>
+#include <cassert>
 
 namespace Tree {
     template <typename T>
@@ -104,6 +105,11 @@ namespace Tree {
         }
     };
 
+    /**
+     * NOTE: A datastructure used to keep track of the locks retrieved by
+     * a single thread.
+     * **Only used as a private variable within each thread, never share to others!**
+     */
     template <typename T>
     struct LockDeque {
         bool isShared;
@@ -151,7 +157,6 @@ namespace Tree {
         }
         void popAndDelete(LockNode<T> *ptr) {
             assert(!isShared);
-            // assert(isLocked(ptr));
             assert(isLocked(ptr->parent));
             for (size_t idx = 0; idx < nodes.size(); idx ++) {
                 if (nodes[idx] == ptr) {
@@ -256,5 +261,3 @@ namespace Tree {
             void removeMerge(LockNode<T>* node, LockDeque<T> &dq);
     };
 }
-
-#endif
