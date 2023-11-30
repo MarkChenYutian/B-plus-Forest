@@ -14,5 +14,10 @@ int main() {
     T.get(10);
     T.get(15);
     T.get(20);
+    T.get(21);
+    T.get(18);
+    T.remove(18);
+    T.remove(15);
+    T.remove(20);
     return 0;
 }

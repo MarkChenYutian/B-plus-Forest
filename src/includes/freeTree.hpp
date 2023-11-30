@@ -41,4 +41,15 @@ namespace Tree {
         scheduler_.submit_request(request);
     }
 
+    template<typename T>
+    void FreeBPlusTree<T>::insert(T key) {
+        Request request{FreeBPlusTree<T>::TreeOp::INSERT, key};
+        scheduler_.submit_request(request);
+    }
+
+    template<typename T>
+    void FreeBPlusTree<T>::remove(T key) {
+        Request request{FreeBPlusTree<T>::TreeOp::DELETE, key};
+        scheduler_.submit_request(request);
+    }
 }
