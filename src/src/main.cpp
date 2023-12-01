@@ -9,7 +9,7 @@ int main() {
     // T_ref.insert(15);
     // T_ref.insert(20);
     Tree::SeqNode<int> *rootPtr = T_ref.getRoot();
-    T_ref.getRoot()->children[0]->printKeys();
+    // T_ref.getRoot()->children[0]->printKeys();
 
     Tree::FreeBPlusTree<int> T(3, 4);
     // T.get(10);

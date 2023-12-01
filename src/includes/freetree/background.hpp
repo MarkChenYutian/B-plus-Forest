@@ -19,17 +19,9 @@ namespace Tree {
         SeqNode<T> *rootPtr = wargs->node;
         const int numWorker = scheduler->numWorker_;
 
-        scheduler->barrier_cnt = numWorker; /// ? 
-
         while (!isTerminate(scheduler->flag) || getStage(scheduler->flag) != PalmStage::COLLECT) {
-            // while (scheduler->barrier_cnt < numWorker && !isTerminate(scheduler->flag)){}
-            // while (scheduler->barrier_cnt < numWorker) {}
-            
-            while (!scheduler->bg_move) {}
-            // scheduler->bg_move = true;
-            
+            if (!scheduler->bg_move) continue;
             PalmStage currentState = getStage(scheduler->flag);
-            DBG_PRINT(std::cout << "Background Stage: " << currentState << std::endl;);
             
             Timer timer;
             size_t request_idx;
@@ -39,21 +31,20 @@ namespace Tree {
             {
             case PalmStage::COLLECT:
                 request_idx = 0;
-                
+                timer = Timer();
                 while (request_idx < BATCHSIZE) {
-                    
                     req = {TreeOp::NOP};
-                    timer = Timer();
                     while (!scheduler->request_queue.pop(req) && timer.elapsed() < COLLECT_TIMEOUT){};
                     req.idx = request_idx;
                     scheduler->curr_batch[request_idx++] = req;
                 }
-                for (Request req : scheduler->curr_batch) {
-                    DBG_PRINT(req.print(););
-                }
-
-                // scheduler->barrier_cnt = 0; /////
+                
+                scheduler->barrier_cnt = 0;
+                scheduler->bg_move = false;
                 setStage(scheduler->flag, PalmStage::SEARCH);
+                for (size_t i = 0; i < numWorker; i++) {
+                    scheduler->worker_move[i] = true;
+                }
                 break;
             
             case PalmStage::SEARCH:
@@ -63,8 +54,14 @@ namespace Tree {
             case PalmStage::DISTRIBUTE:
                 assign_node_to_thread.clear();
                 distribute(scheduler, assign_node_to_thread);
-                // scheduler->barrier_cnt = 0; /////
+
+                
+                scheduler->barrier_cnt = 0;
+                scheduler->bg_move = false; 
                 setStage(scheduler->flag, PalmStage::EXEC_LEAF);
+                for (size_t i = 0; i < numWorker; i++) {
+                    scheduler->worker_move[i] = true;
+                }
                 break;
             
             case PalmStage::EXEC_LEAF:
@@ -80,8 +77,14 @@ namespace Tree {
                 } else if (assign_node_to_thread.size() == 1) {
                     setStage(scheduler->flag, PalmStage::EXEC_ROOT);
                 } else {
-                    // scheduler->barrier_cnt = 0; /////
+                    
+                    scheduler->barrier_cnt = 0;
+                    scheduler->bg_move = false;
                     setStage(scheduler->flag, PalmStage::EXEC_INTERNAL);
+                    for (size_t i = 0; i < numWorker; i++) {
+                        scheduler->worker_move[i] = true;
+                    }
+                    
                 }
                 break;
             
@@ -97,14 +100,8 @@ namespace Tree {
             default:
                 break;
             }
-
-            scheduler->bg_move = false;
-            scheduler->barrier_cnt = 0;
-            for (size_t i = 0; i < numWorker; i++) {
-                scheduler->worker_move[i] = true;
-            }
         }
-
+        scheduler->bg_notify_worker_terminate = true;
         return nullptr;
     }
 

@@ -32,6 +32,7 @@ namespace Tree {
             std::atomic<int> barrier_cnt = 0;
             std::atomic<bool> bg_move = true;
             std::atomic<bool> worker_move[MAXWORKER];
+            std::atomic<bool> bg_notify_worker_terminate = false;
 
         // Helper structs
         public:

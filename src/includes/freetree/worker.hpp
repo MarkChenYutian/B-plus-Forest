@@ -17,11 +17,12 @@ namespace Tree {
          */
         SeqNode<T> *rootPtr = wargs->node;
         std::vector<Request> privateQueue;
-        while (!isTerminate(scheduler->flag) || getStage(scheduler->flag) != PalmStage::COLLECT) {
-            // while (scheduler->barrier_cnt != 0 && !isTerminate(scheduler->flag)){}
-            // while (scheduler->barrier_cnt != 0){}
-            if (!scheduler->worker_move[threadID]) continue;
-            while (scheduler->bg_move) {};
+        while (true) {
+            // DBG_PRINT(std::cout << "W : bg_move: " << scheduler->bg_move << std::endl; 
+            //           std::cout << "W : Stage: " << getStage(scheduler->flag) << std::endl;
+            //           std::cout << "W : scheduler->worker_move[threadID]: " << scheduler->worker_move[threadID] << std::endl;);
+            if (scheduler->bg_notify_worker_terminate) break;
+            if (scheduler->bg_move || !scheduler->worker_move[threadID]) continue;
             
             PalmStage currentState = getStage(scheduler->flag);
             // DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
@@ -30,7 +31,7 @@ namespace Tree {
             {
             case PalmStage::SEARCH:
                 // TODO: update root
-                DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
+                // DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
                 privateQueue.clear();
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     if (scheduler->curr_batch[i].op == TreeOp::NOP) {
@@ -43,16 +44,16 @@ namespace Tree {
                 break;
             
             case PalmStage::EXEC_LEAF:
-                DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
+                // DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
-                    DBG_PRINT(std::cout << "i: " << i << " | size: " << scheduler->request_assign[i].size() << std::endl;);
+                    // DBG_PRINT(std::cout << "i: " << i << " | size: " << scheduler->request_assign[i].size() << std::endl;);
                     leaf_execute(scheduler, scheduler->request_assign[i]);
                 }
                 // scheduler->barrier_cnt ++; /////
                 break;
 
             case PalmStage::EXEC_INTERNAL:
-                DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
+                // DBG_PRINT(std::cout << "Worker Stage: " << currentState << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     internal_execute(scheduler, scheduler->request_assign[i]);
                 }
@@ -119,11 +120,11 @@ namespace Tree {
             }
         }
         
-        if (requests_in_the_same_node.size() > 0) {
-            DBG_PRINT(
-                requests_in_the_same_node[0].curr_node -> printKeys();
-            );
-        }
+        // if (requests_in_the_same_node.size() > 0) {
+        //     DBG_PRINT(
+        //         requests_in_the_same_node[0].curr_node -> printKeys();
+        //     );
+        // }
     }
 
     inline static void internal_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
