@@ -10,6 +10,19 @@
 #include <optional>
 #include <cassert>
 
+#ifdef DEBUG
+std::mutex print_mutex;
+#define DBG_PRINT(arg) \
+    do { \
+        std::lock_guard<std::mutex> lock(print_mutex); \
+        arg; \
+    } while (0);
+#else
+#define DBG_PRINT(arg) {}
+#endif
+
+
+
 namespace Tree {
     template <typename T>
     class ITree {

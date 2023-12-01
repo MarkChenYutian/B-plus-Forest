@@ -1,6 +1,6 @@
 #include <iostream>
 #include "node.hpp"
-#include "freeTree.hpp"
+#include "freetree/freetree.hpp"
 #include "seqTree.hpp"
 
 int main() {

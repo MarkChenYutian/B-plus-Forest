@@ -15,14 +15,16 @@ set(SOURCES src/main.cpp)
 set(HEADERS
     includes/timing.h
     includes/tree.h
-    includes/freetree.h
+    includes/freetree/freetree.hpp
+    includes/freetree/scheduler.hpp
+    includes/freetree/worker.hpp
+    includes/freetree/background.hpp
     includes/seqTree.hpp
     includes/coarseTree.hpp
     includes/fineTree.hpp
     includes/node.hpp
     includes/lockNode.hpp
     includes/engine.hpp
-    includes/freeTree.hpp
 )
 
 

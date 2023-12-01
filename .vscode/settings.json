@@ -91,7 +91,14 @@
         "semaphore": "cpp",
         "stop_token": "cpp",
         "shared_mutex": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "strstream": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "iomanip": "cpp",
+        "cfenv": "cpp",
+        "cinttypes": "cpp"
     },
     "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }
