@@ -17,8 +17,8 @@ enum PalmStage {
     DISTRIBUTE = 2,     // background thread
     EXEC_LEAF = 4,      // worker threads
     REDISTRIBUTE = 8,   // background thread
-
-    CYCLE_END = 1024    // Cycle End
+    EXEC_INTERNAL = 16, // worker threads
+    EXEC_ROOT = 32      // background thread
 };
 
 
@@ -30,6 +30,8 @@ namespace Tree {
             int numWorker_;
             std::atomic<int> flag = 0;
             std::atomic<int> barrier_cnt = 0;
+            std::atomic<bool> bg_move = true;
+            std::atomic<bool> worker_move[MAXWORKER];
 
         // Helper structs
         public:
@@ -71,7 +73,10 @@ namespace Tree {
                 int              idx = -1;
                 SeqNode<T>       *curr_node = nullptr;
 
-                void print() {std::cout << toString(op) << ", " << key << " at " << idx;}
+                void print() {
+                    if (key.has_value()) std::cout << toString(op) << ", " << key.value() << " at " << idx;
+                    else std::cout << toString(op) << ", NONE at " << idx;
+                }
             };
         
         private:
@@ -113,6 +118,9 @@ namespace Tree {
                 request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)), 
                 internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE))
             {
+                for (size_t i = 0; i < numWorker; i++) {
+                    worker_move[i] = false;
+                }
                 assert (numWorker_ + 1 < MAXWORKER);
                 setStage(flag, PalmStage::COLLECT);
 
@@ -131,7 +139,7 @@ namespace Tree {
             };
 
             void waitToExit() {
-                DBG_PRINT(std::cout << "Exit" << std::endl);
+                DBG_PRINT(std::cout << "Start Exit" << std::endl);
                 while (!request_queue.empty());
                 
                 setTerminate(flag, true);

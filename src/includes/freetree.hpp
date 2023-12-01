@@ -1,9 +1,9 @@
 #pragma once
 #include "tree.h"
 #include "timing.h"
-#include "scheduler.hpp"
-#include "background.hpp"
-#include "worker.hpp"
+#include "freetree/scheduler.hpp"
+#include "freetree/background.hpp"
+#include "freetree/worker.hpp"
 
 
 /**
@@ -32,12 +32,7 @@
  * STAGE 4 - A single thread modify the root node
  * 
  * TODO: async, future, promise API
- */
-
-
-
-
-/**
+ * 
  * Using lockfree queue from Boost lilbrary
  * https://www.boost.org/doc/libs/1_76_0/doc/html/boost/lockfree/queue.html
  */
@@ -56,31 +51,34 @@ namespace Tree {
              * NOTE: These are all async APIs since the lock-free B+ tree
              * will execute all the requests in an asynchronous batch operation
              */
-            FreeBPlusTree(int order, int numWorker, SeqNode<T> *rootPtr):
-                ORDER_(order), size_(0), rootPtr(rootPtr), 
-                scheduler_(Scheduler(numWorker, rootPtr, order)) 
-            {}
-            friend class Scheduler<T>;
+            FreeBPlusTree(int order, int numWorker):
+                ORDER_(order), size_(0), rootPtr(SeqNode<T>(true, true))
+            {
+                scheduler_ = new Scheduler(numWorker, &rootPtr, order);
+            }
 
 
             ~FreeBPlusTree() {
-                scheduler_.waitToExit();
+                scheduler_->waitToExit();
+                DBG_PRINT(std::cout << "Really Exited" << std::endl;);
+                DBG_PRINT(rootPtr.printKeys());
+                DBG_PRINT(std::cout << std::endl;);
             }
 
             void insert(T key) {
-                scheduler_.submit_request({Scheduler<T>::TreeOp::INSERT, key});
+                scheduler_->submit_request({Scheduler<T>::TreeOp::INSERT, key});
             }
 
             void remove(T key) {
-                scheduler_.submit_request({Scheduler<T>::TreeOp::DELETE, key});
+                scheduler_->submit_request({Scheduler<T>::TreeOp::DELETE, key});
             }
 
             void get(T key) {
-                scheduler_.submit_request({Scheduler<T>::TreeOp::GET, key});
+                scheduler_->submit_request({Scheduler<T>::TreeOp::GET, key});
             }
 
         private:
-            Scheduler<T> scheduler_;
+            Scheduler<T> *scheduler_;
             SeqNode<T> rootPtr;
             int ORDER_;
             int size_;
