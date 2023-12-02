@@ -57,10 +57,10 @@ set_target_properties(BtreeUnitTest PROPERTIES LINK_FLAGS "-fsanitize=address,un
 
 
 # Test engine build
-# add_executable(BtreeTestEngine ${HEADERS} ${ENGINE_TEST_SRC})
+add_executable(BtreeTestEngine ${HEADERS} ${ENGINE_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-# target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
-# set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,address")
+target_compile_options(BtreeTestEngine PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
+set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefined,address")
 
 
 # PalmTree Test build
@@ -78,7 +78,7 @@ set_target_properties(PalmTreeRelease PROPERTIES LINK_FLAGS "-fsanitize=undefine
 
 # Packages
 find_package(Threads REQUIRED)
-# target_link_libraries(BtreeTestEngine PRIVATE Threads::Threads)
+target_link_libraries(BtreeTestEngine PRIVATE Threads::Threads)
 target_link_libraries(PalmTreeDebug PRIVATE Threads::Threads)
 target_link_libraries(PalmTreeRelease PRIVATE Threads::Threads)
 

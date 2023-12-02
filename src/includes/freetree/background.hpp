@@ -26,6 +26,7 @@ namespace Tree {
             Timer timer;
             size_t request_idx;
             Request req = {TreeOp::NOP};
+            bool isRootUpdate;
 
             switch (currentState)
             {
@@ -70,21 +71,24 @@ namespace Tree {
             
             case PalmStage::REDISTRIBUTE:
                 assign_node_to_thread.clear();
-                redistribute(scheduler, assign_node_to_thread);
+                isRootUpdate = redistribute(scheduler, assign_node_to_thread);
+
                 assert(scheduler->internal_request_queue.empty());
                 if (assign_node_to_thread.size() == 0) {
+                    // Case 1: worker finds that none of their parents need update
+                    // Case 2: background done dealing root
                     setStage(scheduler->flag, PalmStage::COLLECT);
-                } else if (assign_node_to_thread.size() == 1) {
+                } else if (isRootUpdate) {
+                    assert(assign_node_to_thread.size() == 1);
                     setStage(scheduler->flag, PalmStage::EXEC_ROOT);
                 } else {
-                    
+                    // Internal update, done by workers
                     scheduler->barrier_cnt = 0;
                     scheduler->bg_move = false;
                     setStage(scheduler->flag, PalmStage::EXEC_INTERNAL);
                     for (size_t i = 0; i < numWorker; i++) {
                         scheduler->worker_move[i] = true;
                     }
-                    
                 }
                 break;
             
@@ -94,6 +98,7 @@ namespace Tree {
             
             case PalmStage::EXEC_ROOT:
                 // TODO: Implement execute root.
+                root_execute(scheduler, scheduler->request_assign[0]);
                 setStage(scheduler->flag, PalmStage::COLLECT);
                 break;
 
@@ -105,7 +110,7 @@ namespace Tree {
         return nullptr;
     }
 
-    inline static void distribute(
+    static void distribute(
         Scheduler *scheduler, 
         std::unordered_map<SeqNode<T> *, std::vector<Request>> &assign_node_to_thread
     ) {
@@ -132,7 +137,7 @@ namespace Tree {
         }
     }
 
-    inline static void redistribute(
+    static bool redistribute(
         Scheduler *scheduler,
         std::unordered_map<SeqNode<T> *, std::vector<Request>> &assign_node_to_thread
     ) {
@@ -145,6 +150,7 @@ namespace Tree {
         assert(assign_node_to_thread.size() < BATCHSIZE);
 
         size_t idx = 0;
+
         // Fill the slots with Request (task) queue for updating.
         for (auto elem : assign_node_to_thread) {
             assert(elem.second.size() == 1);
@@ -156,6 +162,47 @@ namespace Tree {
             scheduler->request_assign[idx].clear();
             idx ++;
         }
+
+        if (assign_node_to_thread.size() == 1) {
+            Request req = scheduler->request_assign[0][0];
+            if (req.curr_node->parent == scheduler->rootPtr) return true;
+        }
+        return false;
     }
+    
+    static void root_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
+        // assert(requests_in_thesam
+        Request rootUpdateRequest = requests_in_the_same_node[0];
+        int order = scheduler->ORDER_;
+
+        assert(rootUpdateRequest.curr_node->parent == scheduler->rootPtr);
+        SeqNode<T> *root_node = rootUpdateRequest.curr_node;
+
+        if (root_node->numKeys() == 0) {
+            while (root_node->numKeys() == 0) {
+                DBG_PRINT(std::cout << "空了！啊？？？？\n";);
+                if (root_node->isLeaf) {
+                    scheduler->rootPtr->children.clear();
+                    scheduler->rootPtr->isLeaf = true;
+                }
+                assert(root_node->children.size() == 1);
+                root_node = root_node->children[0];
+                scheduler->rootPtr->children[0] = root_node;
+                scheduler->rootPtr->consolidateChild();
+            }
+        } else if (root_node->numKeys() >= order) {
+            while (root_node->numKeys() >= order) {
+                assert(root_node->numKeys() == root_node->numChild() - 1);
+                DBG_PRINT(std::cout << "啊？还要split几次？？？？\n";);
+                SeqNode<T> *new_root_node = new SeqNode<T>(false);
+                
+
+                root_node = new_root_node;
+                scheduler->rootPtr->children[0] = new_root_node;
+                scheduler->rootPtr->consolidateChild();
+            }
+        }
+    }
+
     };
 }

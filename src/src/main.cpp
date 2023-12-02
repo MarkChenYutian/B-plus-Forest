@@ -17,7 +17,7 @@ int main() {
     // T.get(20);
     // T.get(21);
     // T.get(18);
-    // T.insert(10);
+    T.insert(10);
     T.insert(15);
     // T.insert(20);
     // sleep(1);

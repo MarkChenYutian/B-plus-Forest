@@ -44,7 +44,8 @@ namespace Tree {
     struct SeqNode {
         bool isLeaf;                       // Check if node is leaf node
         bool isDummy;                      // Check if node is dummy node
-        int childIndex;                    // Which child am I in parent? (-1 if no parent)
+        int  childIndex;                   // Which child am I in parent? (-1 if no parent)
+        T    minElem;                      // Min element in the subtree rooted at this node (include this node itself)
         std::deque<T> keys;                // Keys
         std::deque<SeqNode<T>*> children;  // Children
         SeqNode<T>* parent;                // Pointer to parent node
@@ -58,6 +59,15 @@ namespace Tree {
         bool debug_checkParentPointers();
         bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
         bool debug_checkChildCnt(int ordering);
+        void updateMin() {
+            assert (numKeys() > 0);
+            if (isLeaf) {
+                minElem = keys.front();
+            } else {
+                assert (numChild() > 0);
+                minElem = children[0]->minElem;
+            }
+        }
 
         inline size_t numKeys()  {return keys.size();}
         inline size_t numChild() {return children.size();}

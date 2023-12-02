@@ -80,7 +80,7 @@ int main() {
         assertNoValue(&tree, 14);
     }
 
-    {TESTCASE("Remove, left/right both same parent with node, but left not moreHalfFull, choose to merge with left")
+    {TESTCASE("Remove")
         auto tree = Tree::SeqBPlusTree<int>(3);
         tree.insert(15);
         tree.insert(10);
@@ -101,7 +101,7 @@ int main() {
         assertNoValue(&tree, 12);
     }
 
-    {TESTCASE("Remove, only right is same parent with node, right moreHalfFull, borrow from right")
+    {TESTCASE("Remove")
         auto tree = Tree::SeqBPlusTree<int>(3);
         tree.insert(15);
         tree.insert(10);
@@ -118,7 +118,7 @@ int main() {
 
     }
     
-    {TESTCASE("Remove, both left/right same parent with node, both not moreHalfFull, choose to merge with left")
+    {TESTCASE("Remove")
         auto tree = Tree::SeqBPlusTree<int>(3);
         tree.insert(15);
         tree.insert(10);
@@ -145,7 +145,7 @@ int main() {
         assertNoValue(&tree, 14);
     }
 
-    {TESTCASE("Remove(order=4), both left/right same parent with node, but left not moreHalfFull, choose to merge with left")
+    {TESTCASE("Remove(order=4)")
         auto tree = Tree::SeqBPlusTree<int>(4);
         tree.insert(15);
         tree.insert(10);
@@ -163,7 +163,7 @@ int main() {
         assertNoValue(&tree, 13);
     }
 
-    {TESTCASE("Remove, order=5 merge right + merge internal right")
+    {TESTCASE("Remove")
         auto tree = Tree::SeqBPlusTree<int>(5);
         tree.insert(10);
         tree.insert(20);
@@ -194,11 +194,9 @@ int main() {
 
         tree.remove(11);
         tree.debug_checkIsValid(true); 
-        // B+ Tree (Root)          [20, 30, 40, 45, ] <->
-        // B+ Tree Lv 0    [10, 12, 15, ] <-> [20, 22, 25, 27, ] <-> [30, 32, 35, 37, ] <-> [40, 42, ] <-> [45, 47, 50, ] <->
     }
 
-    {TESTCASE("Remove, order=5 merge right + borrow internal right")
+    {TESTCASE("Remove, order=5")
         auto tree = Tree::SeqBPlusTree<int>(5);
         tree.insert(10);
         tree.insert(20);
@@ -233,7 +231,7 @@ int main() {
     }
 
 
-    {TESTCASE("Remove, order=5 merge right + merge internal left")
+    {TESTCASE("Remove, order=5")
         auto tree = Tree::SeqBPlusTree<int>(5);
         tree.insert(10);
         tree.insert(20);
@@ -264,7 +262,7 @@ int main() {
     }
 
 
-    {TESTCASE("Remove, order=5 INTENDED merge right + borrow internal left")
+    {TESTCASE("Remove, order=5")
         auto tree = Tree::SeqBPlusTree<int>(5);
         tree.insert(10);
         tree.insert(20);
@@ -297,7 +295,7 @@ int main() {
         tree.debug_checkIsValid(true);
     }
     
-    {TESTCASE("Remove, order=5 merge")
+    {TESTCASE("Remove, order=5")
         auto tree = Tree::SeqBPlusTree<int>(5);
         tree.insert(10);
         tree.insert(20);

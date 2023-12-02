@@ -98,7 +98,12 @@
         "set": "cpp",
         "iomanip": "cpp",
         "cfenv": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "*.ipp": "cpp",
+        "csignal": "cpp",
+        "codecvt": "cpp",
+        "future": "cpp",
+        "scoped_allocator": "cpp"
     },
     "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }

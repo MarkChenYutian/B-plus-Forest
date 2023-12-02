@@ -380,11 +380,11 @@ namespace Tree {
                     /**
                      * Case 3b. Borrow from right, where both are leaves
                      */
-                    T keySiblingMove = node->next->keys[0];
+                    T keySiblingMove = rightNode->keys[0];
 
                     node->keys.push_back(keySiblingMove);
-                    node->next->keys.pop_front();
-                    node->parent->keys[index] = node->next->keys[0];
+                    rightNode->keys.pop_front();
+                    node->parent->keys[index] = rightNode->keys[0];
                 }
             } else {
                 /**
