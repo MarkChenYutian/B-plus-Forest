@@ -15,7 +15,7 @@ int main() {
         std::string s = "../test/large_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
-    auto runner = Engine::correctnessEngine<Tree::SeqBPlusTree<int>, int>(Cases, 11, 1);
+    auto runner = Engine::correctnessEngine<Tree::SeqBPlusTree<int>, int>(Cases, 4, 1);
     // auto runner = Engine::correctnessEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 1);
     // auto runner = Engine::threadingEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 8);
     runner.Run();

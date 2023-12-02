@@ -1,3 +1,4 @@
+#pragma once
 #include <cassert>
 #include <optional>
 #include "tree.h"
@@ -70,15 +71,15 @@ namespace Tree {
     }
     
     template <typename T>
-    bool SeqNode<T>::debug_checkChildCnt(int ordering) {
+    bool SeqNode<T>::debug_checkChildCnt(int order) {
         if (this->isLeaf) {
             return numChild() == 0;
         }
         if (numKeys() <= 0) return false;
-        if (numKeys() >= ordering) return false;
+        if (numKeys() >= order) return false;
         if (numChild() != numKeys() + 1) return false;
         for (auto child : this->children) {
-            bool childIsValid = child->debug_checkChildCnt(ordering);
+            bool childIsValid = child->debug_checkChildCnt(order);
             if (!childIsValid) return false;
         }
         return true;

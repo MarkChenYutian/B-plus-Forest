@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 #include <string>
 #include <sstream>
@@ -365,5 +366,73 @@ private:
         return true;
     }
 };
+
+template <typename T, typename K>
+class lockfreeCheckEngine
+{
+private:
+    int order;
+    int numWorker;
+    std::vector<std::string> paths;
+    std::vector<TestEntry>   currCase;
+
+public:
+    lockfreeCheckEngine(std::vector<std::string> paths, int order, int numWorker): 
+        paths(paths), order(order), numWorker(numWorker)
+        {};
+
+    void Run() {
+        for (size_t j = 0; j < paths.size(); j ++) {
+            const auto testCase = paths[j];
+            loadTestCase(testCase);
+            {
+                auto tree = T(order, numWorker);
+                bool pass = runTestCase(tree);
+                if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
+                else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
+                // destructor will check automatically
+            }
+        }
+    }
+
+private:
+    void loadTestCase(const std::string &filePath) {
+        currCase.clear();
+        std::ifstream file(filePath);
+        std::string   line;
+        if (!file) {
+            std::cerr << "Unable to load file at " << filePath;
+            assert(false);
+        }
+        while (std::getline(file, line)) {
+            TestEntry entry;
+            entry.parse(line);
+            currCase.push_back(entry);
+        }
+    }
+
+    bool runTestCase(T &tree) {
+        for (size_t idx = 0; idx < currCase.size(); idx ++) {
+            TestEntry entry = currCase[idx];
+
+            switch (entry.op){
+            case TestOp::INSERT:
+                tree.insert(entry.value);
+                break;
+            
+            case TestOp::REMOVE:
+                assert(false);
+                // tree.remove(entry.value);
+                break;
+
+            case TestOp::GET:
+                tree.get(entry.value);
+                break;
+            }
+        }
+        return true;
+    }
+};
+
 
 }

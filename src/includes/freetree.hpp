@@ -61,8 +61,16 @@ namespace Tree {
             ~FreeBPlusTree() {
                 scheduler_->waitToExit();
                 DBG_PRINT(std::cout << "Really Exited" << std::endl;);
-                DBG_PRINT(rootPtr.printKeys());
-                DBG_PRINT(std::cout << std::endl;);
+                DBG_PRINT(debugPrint(););
+                #ifdef DEBUG
+                if (!rootPtr.isLeaf) {
+                    assert(rootPtr.children[0]->debug_checkChildCnt(ORDER_));
+                    assert(rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt));
+                    assert(rootPtr.children[0]->debug_checkParentPointers());
+                }
+                #endif
+
+                if (!rootPtr.isLeaf) rootPtr.children[0]->releaseAll();
             }
 
             void insert(T key) {
@@ -82,5 +90,31 @@ namespace Tree {
             SeqNode<T> rootPtr;
             int ORDER_;
             int size_;
-        };
+        
+        private:
+            void debugPrint() {
+                std::cout << "[Free B+ Tree]" << std::endl;
+                if (rootPtr.numChild() == 0) {
+                    std::cout << "(Empty)" << std::endl;
+                    return;
+                }
+                SeqNode<T>* src = &rootPtr;
+                int level_cnt = 0;
+                do {
+                    SeqNode<T>* ptr = src;
+                    std::cout << level_cnt << "\t| ";
+                    while (ptr != nullptr) {
+                        ptr->printKeys();
+                        std::cout << "<->";
+                        ptr = ptr->next;
+                    }
+                    level_cnt ++;
+                    std::cout << std::endl;
+                    if (src->numChild() == 0) break;
+                    src = src->children[0];
+                } while (true);
+                
+                std::cout << std::endl;
+            }
+        };            
 }

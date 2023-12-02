@@ -2,27 +2,25 @@
 #include "node.hpp"
 #include "freetree.hpp"
 #include "seqTree.hpp"
+#include "engine.hpp"
 
-int main() {
-    Tree::SeqBPlusTree<int> T_ref(3);
-    T_ref.insert(10);
-    // T_ref.insert(15);
-    // T_ref.insert(20);
-    Tree::SeqNode<int> *rootPtr = T_ref.getRoot();
-    // T_ref.getRoot()->children[0]->printKeys();
+#define TESTCASE(name) (std::cout << "\n\n\033[1;35mUnit Test '" << name << "' @ line " << __LINE__ << "\n\033[0m");
 
-    Tree::FreeBPlusTree<int> T(3, 4);
-    // T.get(10);
-    // T.get(15);
-    // T.get(20);
-    // T.get(21);
-    // T.get(18);
-    T.insert(10);
-    T.insert(15);
-    // T.insert(20);
-    // sleep(1);
-    // DBG_PRINT(
-    //     T_ref.print();
-    // );
+int main() {    
+    // {TESTCASE("Insert sanity test")
+    //     Tree::FreeBPlusTree<int> tree(3, 4);
+    //     tree.insert(15);
+    //     tree.insert(10);
+    //     tree.insert(20);
+    //     tree.insert(12);
+    //     tree.insert(17);
+    //     tree.insert(18);
+    //     tree.insert(16);
+    //     tree.insert(14);
+    // }
+    std::vector<std::string> Cases = {"../test/IAndG_0.case"};
+    auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 4, 2);
+    runner.Run();
+
     return 0;
 }

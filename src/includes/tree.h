@@ -52,7 +52,7 @@ namespace Tree {
         SeqNode<T>* next;                  // Pointer to left sibling
         SeqNode<T>* prev;                  // Pointer to right sibling
 
-        SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
+        SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
         void printKeys();
         void releaseAll();
         void consolidateChild();
@@ -60,8 +60,8 @@ namespace Tree {
         bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
         bool debug_checkChildCnt(int ordering);
         void updateMin() {
-            assert (numKeys() > 0);
             if (isLeaf) {
+                assert (numKeys() > 0);
                 minElem = keys.front();
             } else {
                 assert (numChild() > 0);

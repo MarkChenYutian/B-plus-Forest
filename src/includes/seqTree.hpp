@@ -1,3 +1,4 @@
+#pragma once
 #include <algorithm>
 #include <iostream>
 #include <cassert>
@@ -236,12 +237,12 @@ namespace Tree {
 
     template <typename T>
     bool SeqBPlusTree<T>::isHalfFull(SeqNode<T>* node) {
-        return node->numKeys() >= (ORDER_ / 2);
+        return node->numKeys() >= ((ORDER_ - 1) / 2);
     }
 
     template <typename T>
     bool SeqBPlusTree<T>::moreHalfFull(SeqNode<T>* node) {
-        return node->numKeys() > (ORDER_ / 2);
+        return node->numKeys() > ((ORDER_ - 1) / 2);
     }
 
     template <typename T>

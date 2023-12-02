@@ -1,6 +1,4 @@
-#ifndef TIMING_H
-#define TIMING_H
-
+#pragma once
 #include <chrono>
 
 class Timer {
@@ -16,5 +14,3 @@ private:
   typedef std::chrono::duration<double, std::ratio<1>> second_;
   std::chrono::time_point<clock_> beg_;
 };
-
-#endif
