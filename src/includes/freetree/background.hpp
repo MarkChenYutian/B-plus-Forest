@@ -61,10 +61,10 @@ namespace Tree {
                 // )
                 
                 scheduler->barrier_cnt = 0;
-                scheduler->bg_move = false;
                 setStage(scheduler->flag, PalmStage::SEARCH);
 
                 for (size_t i = 0; i < numWorker; i++) scheduler->worker_move[i] = true;
+                scheduler->bg_move = false;
                 break;
             
             case PalmStage::SEARCH:
@@ -89,11 +89,12 @@ namespace Tree {
                 // );
                 
                 scheduler->barrier_cnt = 0;
-                scheduler->bg_move = false; 
+                
                 setStage(scheduler->flag, PalmStage::EXEC_LEAF);
                 for (size_t i = 0; i < numWorker; i++) {
                     scheduler->worker_move[i] = true;
                 }
+                scheduler->bg_move = false; 
                 break;
             
             case PalmStage::EXEC_LEAF:
@@ -145,13 +146,26 @@ namespace Tree {
                     //     std::cout << "BG: show current tree (before exec internal)" << std::endl;
                     //     scheduler->debugPrint();
                     // )
+
+                    // FOR DEBUG ONLY
+                    std::unordered_map<SeqNode<T>*, int> existing_nodes;
+                    for (size_t i = 0; i < numWorker; i ++) {
+                        if (scheduler->request_assign[i].empty()) continue;
+                        assert(scheduler->request_assign[i].size() == 1);
+                        assert(existing_nodes.find(scheduler->request_assign[i][0].curr_node) == existing_nodes.end());
+                        existing_nodes[scheduler->request_assign[i][0].curr_node] = 1;
+                    }
+                    // END FOR DEBUG ONLY
+
+
                     // Internal update, done by workers
                     scheduler->barrier_cnt = 0;
-                    scheduler->bg_move = false;
+                    
                     setStage(scheduler->flag, PalmStage::EXEC_INTERNAL);
                     for (size_t i = 0; i < numWorker; i++) {
                         scheduler->worker_move[i] = true;
                     }
+                    scheduler->bg_move = false;
                 }
                 break;
             
@@ -297,8 +311,8 @@ namespace Tree {
 
                 while (root_node->numKeys() >= order) {
                     PrivateWorker::bigSplitToRight(order, root_node);
-                    PrivateWorker::rebuildChildren(new_root_node, nullptr);
-                    
+                    // PrivateWorker::rebuildChildren(new_root_node, nullptr);
+                    new_root_node->consolidateChild();
                 }
                 new_root_node->updateMin();
                 root_node = new_root_node;

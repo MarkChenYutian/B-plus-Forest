@@ -66,8 +66,8 @@ set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefine
 # PalmTree Test build
 add_executable(PalmTreeDebug ${HEADERS} ${SOURCES})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-target_compile_options(PalmTreeDebug PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g -DDEBUG)
-set_target_properties(PalmTreeDebug PROPERTIES LINK_FLAGS "-fsanitize=undefined,thread")
+target_compile_options(PalmTreeDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
+set_target_properties(PalmTreeDebug PROPERTIES LINK_FLAGS "-fsanitize=undefined,address")
 
 # PalmTree Test Release build
 add_executable(PalmTreeRelease ${HEADERS} ${SOURCES})

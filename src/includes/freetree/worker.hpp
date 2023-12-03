@@ -58,7 +58,7 @@ namespace Tree {
                 break;
 
             case PalmStage::EXEC_INTERNAL:
-                // DBG_PRINT(std::cout << "W: EXEC_INTERNAL" << std::endl;);
+                // DBG_PRINT(std::cout << "W: EXEC_INTERNAL" << threadID << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     internal_execute(scheduler, scheduler->request_assign[i]);
                 }
@@ -82,6 +82,7 @@ namespace Tree {
     inline static void search(Scheduler *scheduler, std::vector<Request> &privateQueue, SeqNode<T> *rootPtr) {
         for (Request &request : privateQueue) {
             SeqNode<T>* leafNode = lockFreeFindLeafNode(rootPtr, request.key.value());
+            assert(leafNode != nullptr);
             scheduler->curr_batch[request.idx].curr_node = leafNode;
         }
     }
@@ -109,9 +110,14 @@ namespace Tree {
 
         for (Request &req : requests_in_the_same_node) {
             assert(req.key.has_value());
+            assert(req.op == TreeOp::DELETE || req.op == TreeOp::GET || req.op == TreeOp::INSERT);
             assert(!doCheck || req.curr_node == leafNode);
 
             T key = req.key.value();
+            if (leafNode == nullptr) {
+                DBG_PRINT(scheduler->debugPrint(););
+                assert(false);
+            }
             auto it = std::lower_bound(leafNode->keys.begin(), leafNode->keys.end(), key);
             
             switch (req.op) {
@@ -159,7 +165,12 @@ namespace Tree {
 
         // node->updateMin();  // TODO: Unnecessary?
 
-        assert(node->children.size() >= 2);
+        // assert(node->children.size() >= 2);
+        if (node->children.size() < 2) {
+            DBG_PRINT(scheduler->debugPrint());
+            DBG_PRINT(node->printKeys(););
+            assert(false);
+        }
         /**
          * NOTE: Since we are updating node->children iteratively (due to batch operation)
          * the node->children is subject to change. However, we make sure the start and end of children
@@ -168,6 +179,7 @@ namespace Tree {
          */
         SeqNode<T> *next_child, *old_next_child;
         for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
+        // while (
             bool use_old = false;
             old_next_child = child->next;
             next_child = child->next;
@@ -182,11 +194,12 @@ namespace Tree {
                 
                 while (child->numKeys() >= scheduler->ORDER_) {
                     if (child->childIndex < node->numKeys()) bigSplitToRight(scheduler->ORDER_, child);
-                    else bigSplitToLeft(scheduler->ORDER_, child);
+                    else bigSplitToLeft(scheduler->ORDER_, child, node->numChild() == 2);
                 }
                 assert(!node->children.empty());
                 assert(node->children.back() != nullptr);
-                if (!node->isLeaf) rebuildChildren(node, rightmost);
+                node->consolidateChild();
+
             } else if (!isHalfFull(child, scheduler->ORDER_)) {
                 if (child->childIndex == 0) { // leftmost child
                     // try borrow from right
@@ -212,7 +225,8 @@ namespace Tree {
                     merge(scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);
                     
                 }
-                if (!node->isLeaf) rebuildChildren(node, rightmost);
+                // if (!node->isLeaf) rebuildChildren(node, rightmost);
+                node->consolidateChild();
             }
             
             next_child = use_old ? old_next_child : child->next;
@@ -378,33 +392,26 @@ namespace Tree {
                  */
             }
 
-            parent->keys.erase(parent->keys.begin() + index);
-            parent->children.erase(parent->children.begin() + left->childIndex);
+            // parent->keys.erase(parent->keys.begin() + index);
+            // parent->children.erase(parent->children.begin() + left->childIndex);
 
             right->keys.insert(right->keys.begin(), left->keys.begin(), left->keys.end());
             left->keys.clear();
             right->consolidateChild();
 
             /** Fix linked list */
-            // if (needLock) {
-            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            //     right->prev = left->prev;
-            //     if (left->prev != nullptr) left->prev->next = right;
-            // } else {
-            //     right->prev = left->prev;
-            //     if (left->prev != nullptr) left->prev->next = right;
-            // }
             right->prev = left->prev;
-            if (needLock && left->prev != nullptr) {
+            if (needLock) {
                 std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                left->prev->next = right;
+                if (left->prev != nullptr) left->prev->next = right;
             }
             else {
                 if (left->prev != nullptr) left->prev->next = right;
             }
             
             right->updateMin();
-            delete left;
+            parent->children.erase(parent->children.begin() + left->childIndex);
+            // delete left;
         } else {
             /** Right merge to left */
             if (!right->isLeaf) {
@@ -420,8 +427,8 @@ namespace Tree {
                 /** Case 1b. if are leaves, don't need to do operations above */
             }
 
-            parent->keys.erase(parent->keys.begin() + index);
-            parent->children.erase(parent->children.begin() + right->childIndex);
+            // parent->keys.erase(parent->keys.begin() + index);
+            // parent->children.erase(parent->children.begin() + right->childIndex);
 
             left->keys.insert(left->keys.end(), right->keys.begin(), right->keys.end());
             right->keys.clear();
@@ -430,23 +437,28 @@ namespace Tree {
 
             left->next = right->next;
             /** Fix linked list */
-            if (needLock && right->next != nullptr) {
+            if (needLock) {
                 std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                right->next->prev = left;
+                if (right->next != nullptr) right->next->prev = left;
             } else {
                 if (right->next != nullptr) right->next->prev = left;
             }
 
             left->updateMin();
-            delete right;
+            parent->children.erase(parent->children.begin() + right->childIndex);  // todo
+            // delete right;
         }
+        parent->keys.erase(parent->keys.begin() + index);
     }
 
     // internal_execute call bigSplitInternalToLeft
-    static void bigSplitToLeft(int order, SeqNode<T> *child) {
+    static void bigSplitToLeft(int order, SeqNode<T> *child, bool needLock) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf);
+        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf),
+                   *parent = child->parent;
+        
+        new_node->parent = parent;
 
         size_t numToSplitLeft;
         if ((child->numKeys() - order) >= ((order - 1) / 2)) { 
@@ -457,34 +469,43 @@ namespace Tree {
             numToSplitLeft = ((order - 1) / 2);
         }
 
-        new_node->keys.insert(new_node->keys.begin(), child->keys.begin(), child->keys.begin()+numToSplitLeft);
-        child->keys.erase(child->keys.begin(), child->keys.begin()+numToSplitLeft);
-
-        if (!child->isLeaf) {
-            new_node->children.insert(new_node->children.begin(), child->children.begin(), child->children.begin()+numToSplitLeft+1);
-            child->children.erase(child->children.begin(), child->children.begin()+numToSplitLeft+1);
-
-            /**
-             * We can do this because consolidateChild will cover everything for us!!!
-             * we always have minElem in node : )
-             */
+        size_t index = child->childIndex;
+        if (child->isLeaf) {
+            new_node->keys.insert(new_node->keys.begin(), child->keys.begin(), child->keys.begin() + numToSplitLeft);
+            child->keys.erase(child->keys.begin(), child->keys.begin() + numToSplitLeft);
+            parent->keys.insert(parent->keys.begin() + index, child->keys.front());
+        } else {
+            new_node->keys.insert(new_node->keys.begin(), child->keys.begin(), child->keys.begin() + numToSplitLeft);
+            child->keys.erase(child->keys.begin(), child->keys.begin() + numToSplitLeft);
+            parent->keys.insert(parent->keys.begin() + index, child->keys.front());
             child->keys.pop_front();
+
+            new_node->children.insert(new_node->children.begin(), child->children.begin(), child->children.begin() + numToSplitLeft + 1);
+            child->children.erase(child->children.begin(), child->children.begin() + numToSplitLeft + 1);
+            
+            new_node->consolidateChild();
+            child->consolidateChild();
         }
+
+        
+        
+        parent->children.insert(parent->children.begin() + index, new_node);
+        parent->consolidateChild();
 
         /** Fix linked list */
-
-        new_node->prev = child->prev;
         new_node->next = child;
+        new_node->prev = child->prev;
         child->prev    = new_node;
-        new_node->prev->next = new_node;
 
-        if (child->isLeaf) {
-            child->updateMin();
-            new_node->updateMin();
-        } else{
-            rebuildChildren(child, child->children.back());
-            rebuildChildren(new_node, new_node->children.back());    
+        if (needLock) {
+            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
+        } else {
+            if (new_node->prev != nullptr) new_node->prev->next = new_node;
         }
+
+        child->updateMin();
+        new_node->updateMin();
 
         assert(isHalfFull(new_node, order));
         assert(isHalfFull(child, order));
@@ -494,7 +515,11 @@ namespace Tree {
     static void bigSplitToRight(int order, SeqNode<T> *child) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf);
+        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf),
+                   *parent = child->parent;
+        
+
+        new_node->parent = parent;
 
         size_t numToSplitRight;
         if ((child->numKeys() - order) >= ((order-1) / 2)) { 
@@ -505,55 +530,39 @@ namespace Tree {
             numToSplitRight = ((order-1) / 2);
         }
 
-        new_node->keys.insert(new_node->keys.begin(), child->keys.end() - numToSplitRight, child->keys.end());
-        child->keys.erase(child->keys.end() - numToSplitRight, child->keys.end());
+        size_t index = child->childIndex;
+        if (child->isLeaf) {
+            new_node->keys.insert(new_node->keys.begin(), child->keys.end() - numToSplitRight, child->keys.end());
+            child->keys.erase(child->keys.end() - numToSplitRight, child->keys.end());
+            parent->keys.insert(parent->keys.begin() + index, new_node->keys.front());
+        } else {
 
-        if (!child->isLeaf) {
-            new_node->children.insert(new_node->children.begin(), child->children.end() - (numToSplitRight+1), child->children.end());
-            child->children.erase(child->children.end() - (numToSplitRight+1),child->children.end());
-            /**
-             * We can do this because consolidateChild will cover everything for us!!!
-             * we always have minElem in node : )
-             */
+            new_node->keys.insert(new_node->keys.begin(), child->keys.end() - numToSplitRight, child->keys.end());
+            child->keys.erase(child->keys.end() - numToSplitRight, child->keys.end());
+            parent->keys.insert(parent->keys.begin() + index, child->keys.back());
             child->keys.pop_back();
+
+            new_node->children.insert(new_node->children.begin(), child->children.end() - numToSplitRight-1, child->children.end());
+            child->children.erase(child->children.end() - numToSplitRight-1, child->children.end());
+
+            new_node->consolidateChild();
+            child->consolidateChild();   
         }
 
+        parent->children.insert(parent->children.begin() + index + 1, new_node);
+        parent->consolidateChild();
+
         /** Fix linked list */
-        
         new_node->prev = child;
         new_node->next = child->next;
         child->next = new_node;
         if (new_node->next != nullptr)  new_node->next->prev = new_node;
         
-        if (!child->isLeaf) {
-            rebuildChildren(child, child->children.back());
-            rebuildChildren(new_node, new_node->children.back());
-        } else {
-            child->updateMin();
-            new_node->updateMin();
-        }
+        child->updateMin();
+        new_node->updateMin();
 
         assert(isHalfFull(new_node, order));
         assert(isHalfFull(child, order));
-    }
-
-    static void rebuildChildren(SeqNode<T> * node, SeqNode<T> *rightMost) {
-        assert (!node->isLeaf);
-        if (rightMost != nullptr) rightMost = rightMost->next;
-
-        size_t childIdx = 0;
-        node->keys.clear();
-        node->children.clear();
-
-        for (SeqNode<T> *ptr = node->children[0]; ptr != rightMost; ptr = ptr->next) {
-            // if (ptr == nullptr) break;
-            ptr->childIndex = childIdx;
-            ptr->parent = node;
-            ptr->updateMin();
-            if (childIdx != 0) node->keys.push_back(ptr->minElem);
-            node->children.push_back(ptr);
-            childIdx++;
-        }
     }
 };
 }

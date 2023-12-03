@@ -4,7 +4,7 @@
 #include <boost/lockfree/queue.hpp>
 
 constexpr int MAXWORKER          = 65;
-constexpr int BATCHSIZE          = 9;
+constexpr int BATCHSIZE          = 32;
 constexpr int TERMINATE_FLAG     = 0x40000000;
 constexpr double COLLECT_TIMEOUT = 0.001;
 constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
