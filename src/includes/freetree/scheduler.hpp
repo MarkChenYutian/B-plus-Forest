@@ -5,7 +5,7 @@
 #include <boost/lockfree/queue.hpp>
 
 constexpr int MAXWORKER          = 65;
-constexpr int BATCHSIZE          = 10;
+constexpr int BATCHSIZE          = 16;
 constexpr int TERMINATE_FLAG     = 0x40000000;
 constexpr double COLLECT_TIMEOUT = 0.001;
 constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
@@ -53,7 +53,7 @@ namespace Tree {
              * --------------use for internal nodes---------------
              * UPDATE - the internal node need to update (child may have splitted or merged)
              */
-            enum TreeOp {NOP, GET, INSERT, DELETE, UPDATE, UPDATE_MIN};
+            enum TreeOp {NOP, GET, INSERT, DELETE, UPDATE};
             static std::string toString(TreeOp op) {
                 switch (op) {
                 case TreeOp::NOP: return "NOP";
@@ -101,6 +101,15 @@ namespace Tree {
              */
             boost::lockfree::queue<Request> internal_request_queue;
 
+            /**
+             * This queue handles the release requests from internal worker threads.
+             * All pointers in this thread will be removed during the COLLECT phase to eliminate memory
+             * leak.
+             * 
+             * Linked list will also be fixed in this phase to avoid racing condition.
+             */
+            boost::lockfree::queue<FreeNode<T>*> internal_release_queue;
+
             // This array stores the leaf nodes used by each request
             Request curr_batch[BATCHSIZE];
             // This array stores the worker-request assignment (distribution)
@@ -118,7 +127,8 @@ namespace Tree {
             Scheduler(int numWorker, FreeNode<T> *rootPtr, int order): 
                 numWorker_(numWorker), rootPtr(rootPtr), ORDER_(order),
                 request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)), 
-                internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE))
+                internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE)),
+                internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE))
             {
                 for (size_t i = 0; i < numWorker; i++) {
                     worker_move[i] = false;
@@ -141,8 +151,9 @@ namespace Tree {
             };
 
             void waitToExit() {
-                DBG_PRINT(std::cout << "Start Exit" << std::endl);
+                DBG_PRINT(std::cout << "Scheduler get Terminate signal, will exit after current batch" << std::endl);
                 while (!request_queue.empty());
+                PrivateBackground::release_nodes(this);
                 
                 setTerminate(flag, true);
                 for (size_t i = 0; i < numWorker_ + 1; i ++) {

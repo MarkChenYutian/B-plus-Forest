@@ -28,7 +28,7 @@ namespace Tree {
     template <typename T>
     void FreeNode<T>::printKeys() {
         std::cout << "[";
-        std::cout << childIndex << ", M:" << minElem << "|";
+        std::cout << childIndex << "|";
         for (int i = 0; i < numKeys(); i ++) {
             std::cout << keys[i];
             if (i != numKeys() - 1) std::cout << ",";
@@ -38,18 +38,6 @@ namespace Tree {
 
     template <typename T>
     bool FreeNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
-        if (isLeaf && minElem != -1 && minElem != keys[0]) {
-            std::cout << "\033[1;31m FAILED min(1)";
-            this->printKeys();
-            std::cout << "\033[0m" << std::endl;
-            return false;
-        } else if (minElem != -1 && numChild() > 0 && minElem != children[0]->minElem) {
-            std::cout << "\033[1;31m FAILED min(2)";
-            this->printKeys();
-            std::cout << "\033[0m" << std::endl;
-            return false;
-        }
-
         for (const auto key : this->keys) {
             if (lower.has_value() && key < lower.value()) {                
                 std::cout << "\033[1;31m FAILED lower has value:" << lower.value() << " ";
@@ -120,14 +108,4 @@ namespace Tree {
             children[id]->childIndex = id;
         }
     }
-
-    template <typename T>
-    bool FreeNode<T>::updateMin() {
-        T origMin = minElem;
-        if (isLeaf && numKeys() > 0) minElem = keys.front();
-        else if (!isLeaf) minElem = children[0]->minElem;
-        
-        return origMin != minElem;
-    }
-    
 }

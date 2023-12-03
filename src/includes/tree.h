@@ -83,21 +83,20 @@ namespace Tree {
         bool isLeaf;                       // Check if node is leaf node
         bool isDummy;                      // Check if node is dummy node
         int  childIndex;                   // Which child am I in parent? (-1 if no parent)
-        T    minElem;                      // Min element in the subtree rooted at this node (include this node itself)
         std::deque<T> keys;                // Keys
         std::deque<FreeNode<T>*> children; // Children
         FreeNode<T>* parent;               // Pointer to parent node
         FreeNode<T>* next;                 // Pointer to left sibling
         FreeNode<T>* prev;                 // Pointer to right sibling
+        std::atomic<int> occupy_flag;      // An atomic CAS flag for modifying next,prev pointers.
 
-        FreeNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
+        FreeNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1), occupy_flag(0) {};
         void printKeys();
         void releaseAll();
         void consolidateChild();
         bool debug_checkParentPointers();
         bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
         bool debug_checkChildCnt(int ordering, bool allowEmpty=false);
-        bool updateMin();
 
         inline size_t numKeys()  {return keys.size();}
         inline size_t numChild() {return children.size();}

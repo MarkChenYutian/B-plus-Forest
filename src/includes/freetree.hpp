@@ -63,9 +63,11 @@ namespace Tree {
 
             ~FreeBPlusTree() {
                 scheduler_->waitToExit();
+                delete scheduler_;
+                
                 DBG_PRINT(std::cout << "Really Exited" << std::endl;);
+
                 #ifdef DEBUG
-                // scheduler_->debugPrint();
                 if (!rootPtr.isLeaf) {
                     assert(rootPtr.children[0]->debug_checkChildCnt(ORDER_, true));
                     assert(rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt));

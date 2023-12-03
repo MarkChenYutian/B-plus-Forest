@@ -36,9 +36,12 @@ namespace Tree {
                 // DBG_PRINT(std::cout << "BG: COLLECT" << std::endl;);
                 request_idx = 0;
                 timer = Timer();
+                FreeNode<T> *node;
                 while (request_idx < BATCHSIZE) {
                     req = {TreeOp::NOP};
-                    while (!scheduler->request_queue.pop(req) && timer.elapsed() < COLLECT_TIMEOUT){};
+                    while (!scheduler->request_queue.pop(req) && timer.elapsed() < COLLECT_TIMEOUT){
+                        if (scheduler->internal_release_queue.pop(node)) delete node;
+                    };
                     req.idx = request_idx;
                     scheduler->curr_batch[request_idx++] = req;
                 }
@@ -77,6 +80,9 @@ namespace Tree {
                 // DBG_PRINT(std::cout << "BG: DISTRIBUTE" << std::endl;);
                 assign_node_to_thread.clear();
                 distribute(scheduler, assign_node_to_thread);
+                // for (int i = 0; i < BATCHSIZE; i ++) {
+                //     scheduler->curr_batch[i] = Request{TreeOp::NOP};
+                // }
 
                 // DBG_PRINT(
                 // std::cout << "BG | DISTRIBUTE : assign_node_to_thread" << std::endl;
@@ -119,19 +125,11 @@ namespace Tree {
                 // std::cout << std::endl;
                 // );
 
-                // assert(scheduler->internal_request_queue.empty());
+                assert(scheduler->internal_request_queue.empty());
                 if (assign_node_to_thread.size() == 0) {
                     // Case 1: worker finds that none of their parents need update
                     // Case 2: background done dealing root
                     // DBG_PRINT(std::cout << "BG: assign_node_to_thread.size() == 0" << std::endl;);
-                    Request update_min_request;
-                    while (scheduler->internal_request_queue.pop(update_min_request)) {
-                        if (update_min_request.curr_node->updateMin() && update_min_request.curr_node->parent != nullptr) {
-                            scheduler->internal_request_queue.push(
-                                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, update_min_request.curr_node->parent}
-                            );
-                        }
-                    }
                     setStage(scheduler->flag, PalmStage::COLLECT);
                 } else if (isRootUpdate) {
 
@@ -166,6 +164,15 @@ namespace Tree {
                     for (size_t i = 0; i < numWorker; i++) {
                         scheduler->worker_move[i] = true;
                     }
+                    /**
+                     * NOTE: We put release nodes here since we can run in parallel with worker
+                     * to maximize the throughput of the entire data structure.
+                     * 
+                     * (! notice that the worker should be at least one-level above the nodes in
+                     * release queue, and non of the tree node has pointer pointing to the to-be-removed
+                     * nodes, so this will not cause data racing.)
+                     */
+                    release_nodes(scheduler);
                     scheduler->bg_move = false;
                 }
                 break;
@@ -198,6 +205,7 @@ namespace Tree {
             if (req.op == TreeOp::NOP) continue;
 
             FreeNode<T> *node = req.curr_node;
+            assert(node != nullptr);
             assign_node_to_thread[node].push_back(req);
         }
         assert(assign_node_to_thread.size() <= BATCHSIZE);
@@ -223,22 +231,10 @@ namespace Tree {
         std::set<FreeNode<T>*> parent_update_min;
 
         while (scheduler->internal_request_queue.pop(update_req)) {
-            if (update_req.op == TreeOp::UPDATE_MIN) {
-                update_req.curr_node->updateMin();
-                parent_update_min.insert(update_req.curr_node->parent);
-                continue;
-            }
             if (assign_node_to_thread.find(update_req.curr_node) != assign_node_to_thread.end()) {
                 continue;
             }
             assign_node_to_thread[update_req.curr_node].push_back(update_req);
-        }
-
-        for (FreeNode<T> *parent : parent_update_min) {
-            if (parent == nullptr) continue;
-            scheduler->internal_request_queue.push(
-                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, parent}
-            );
         }
 
         assert(assign_node_to_thread.size() <= BATCHSIZE);
@@ -271,11 +267,6 @@ namespace Tree {
 
         assert(rootUpdateRequest.curr_node == scheduler->rootPtr);
         FreeNode<T> *root_node = rootUpdateRequest.curr_node->children[0];
-
-        Request update_min_request;
-        while (scheduler->internal_request_queue.pop(update_min_request)) {
-            update_min_request.curr_node->updateMin();
-        }
         
         if (root_node->numKeys() == 0) {
             while (root_node->numKeys() == 0) {
@@ -291,9 +282,10 @@ namespace Tree {
                     break;
                 }
                 assert(root_node->children.size() == 1);
-                root_node = root_node->children[0];
-                scheduler->rootPtr->children[0] = root_node;
+                FreeNode<T> *new_root_node = root_node->children[0];
+                scheduler->rootPtr->children[0] = new_root_node;
                 scheduler->rootPtr->consolidateChild();
+                delete root_node;
             }
         } else if (root_node->numKeys() >= order) {
             while (root_node->numKeys() >= order) {
@@ -315,11 +307,17 @@ namespace Tree {
                     // PrivateWorker::rebuildChildren(new_root_node, nullptr);
                     new_root_node->consolidateChild();
                 }
-                new_root_node->updateMin();
                 root_node = new_root_node;
             }
         }
     }
 
+    static void release_nodes(Scheduler *scheduler) {
+        FreeNode<T> *node;
+        while (scheduler->internal_release_queue.pop(node)) {
+            delete node;
+        }
+    }
+    
     };
 }

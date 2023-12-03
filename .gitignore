@@ -10,3 +10,14 @@ build/
 test/
 
 *.old
+
+# Latex
+
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.pdf
+*.out
+*.synctex.gz
+_minted-report/*

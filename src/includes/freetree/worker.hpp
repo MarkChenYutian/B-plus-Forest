@@ -9,7 +9,7 @@ std::mutex the_tale_of_two_subtrees;
 
 namespace Tree {
     template <typename T>
-    struct Scheduler<T>::PrivateWorker {
+    struct Scheduler<T> ::PrivateWorker {
 
     static inline bool isHalfFull(FreeNode<T> *node, int order) {
         return node->numKeys() >= ((order - 1) / 2);
@@ -38,11 +38,14 @@ namespace Tree {
             switch (currentState)
             {
             case PalmStage::SEARCH:
-                // TODO: update root
-                // DBG_PRINT(std::cout << "W: SEARCH" << std::endl;);
                 privateQueue.clear();
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     if (scheduler->curr_batch[i].op == TreeOp::NOP) {
+                        /**
+                         * TODO: These are for debug only.
+                         */
+                        scheduler->curr_batch[i].key = -15418;
+                        scheduler->curr_batch[i].curr_node = nullptr;
                         continue;
                     }
                     privateQueue.push_back(scheduler->curr_batch[i]);
@@ -51,22 +54,19 @@ namespace Tree {
                 break;
             
             case PalmStage::EXEC_LEAF:
-                // DBG_PRINT(std::cout << "W: EXEC_LEAF (" << threadID << ")" << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     leaf_execute(scheduler, scheduler->request_assign[i]);
                 }
                 break;
 
             case PalmStage::EXEC_INTERNAL:
-                // DBG_PRINT(std::cout << "W: EXEC_INTERNAL" << threadID << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     internal_execute(scheduler, scheduler->request_assign[i]);
                 }
                 break;
             default:
-                continue;
-                // assert(false);
-                // break;
+                // continue;
+                assert(false);
             }
 
             scheduler->worker_move[threadID] = false;
@@ -89,7 +89,6 @@ namespace Tree {
 
     inline static void leaf_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
         if (requests_in_the_same_node.empty()) return;
-
         FreeNode<T> *leafNode = requests_in_the_same_node[0].curr_node;
         int order = scheduler->ORDER_;
         // leafNode could be root_node, or rootPtr
@@ -108,7 +107,12 @@ namespace Tree {
             scheduler->rootPtr->isLeaf = false;
         }
 
-        for (Request &req : requests_in_the_same_node) {
+        size_t numRequest = requests_in_the_same_node.size();
+        // for (Request &req : requests_in_the_same_node) {
+        for (int i = 0; i < numRequest; i ++) {
+            // Request req = std::move(requests_in_the_same_node[i]);
+            Request req = requests_in_the_same_node[i];
+
             assert(req.key.has_value());
             assert(req.op == TreeOp::DELETE || req.op == TreeOp::GET || req.op == TreeOp::INSERT);
             assert(!doCheck || req.curr_node == leafNode);
@@ -144,13 +148,6 @@ namespace Tree {
             scheduler->internal_request_queue.push(
                 Request{TreeOp::UPDATE, std::nullopt, -1, leafNode->parent}
             );
-            
-        } 
-        if (leafNode->updateMin()) {
-            assert(leafNode->parent != nullptr);
-            scheduler->internal_request_queue.push(
-                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, leafNode->parent}
-            );
         }
     }
 
@@ -162,8 +159,6 @@ namespace Tree {
 
         Request update_req = requests_in_the_same_node[0];
         FreeNode<T> *node = update_req.curr_node;
-
-        // node->updateMin();  // TODO: Unnecessary?
 
         // assert(node->children.size() >= 2);
         if (node->children.size() < 2) {
@@ -183,10 +178,6 @@ namespace Tree {
         int child_num = node->numChild();
         int curr = 0;
         while (curr++ < child_num) {
-            // next_child = child->next;
-            // bool use_old = false;
-            // old_next_child = child->next;
-            // next_child = child->next;
             FreeNode<T> *rightmost = node->children.back();
             if (child->numKeys() >= scheduler->ORDER_)  {
                 /**
@@ -213,7 +204,7 @@ namespace Tree {
                     // try borrow from right
                     if (tryBorrow(scheduler->ORDER_, child, child->next, false)) continue;
                     // right merge to itself
-                    merge(scheduler->ORDER_, child, child->next, false, node->numChild() == 2);
+                    merge(scheduler, scheduler->ORDER_, child, child->next, false, node->numChild() == 2);
                     child_num --;
                 } else if (child->childIndex < node->numKeys()) { // middle 
                     // try borrw from left
@@ -221,23 +212,19 @@ namespace Tree {
                     // try borrow from right
                     if (tryBorrow(scheduler->ORDER_, child, child->next, false)) continue;
                     // merge with right
-                    merge(scheduler->ORDER_, child, child->next, true, node->numChild() == 2);
+                    merge(scheduler, scheduler->ORDER_, child, child->next, true, node->numChild() == 2);
                     /**
                      * merge(...) will delete child, which makes it use-after-free to get child->next
                      * So we want to use the previous child->next (old_child_next) in this case.
                      */
-                    // use_old = true;
                 } else { // rightmost child
                     // try borrow from left
                     if (tryBorrow(scheduler->ORDER_, child->prev, child, true)) continue;
                     // left merge to itself
-                    merge(scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);                    
+                    merge(scheduler, scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);
                 }
-                // if (!node->isLeaf) rebuildChildren(node, rightmost);
                 node->consolidateChild();
             }
-            
-            // next_child = use_old ? old_next_child : child->next;
             child = child->next;
         }
 
@@ -245,12 +232,6 @@ namespace Tree {
         if (node->numKeys() >= scheduler->ORDER_ || !isHalfFull(node, scheduler->ORDER_)) {
             scheduler->internal_request_queue.push(
                 Request{TreeOp::UPDATE, std::nullopt, -1, node->parent}
-            );
-        }
-        if (node->updateMin()) {
-            assert(node->parent != nullptr);
-            scheduler->internal_request_queue.push(
-                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, node->parent}
             );
         }
     }
@@ -263,7 +244,10 @@ namespace Tree {
         }
         return node;
     }   
-    
+
+    /**
+     * Execute on leaf node - get element directly
+     * */    
     static std::optional<T> getFromLeaf(FreeNode<T> *node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
@@ -272,13 +256,17 @@ namespace Tree {
         return std::nullopt;
     }
 
-    // leaf_execute call insertKeyToLeaf
+    /**
+     * Execute on leaf node - insert element directly
+     * */
     static void insertKeyToLeaf(FreeNode<T> *node, T key) {
         size_t index = node->getGtKeyIdx(key);
         node->keys.insert(node->keys.begin() + index, key);
     }
 
-    // leaf_execute call removeFromLeaf
+    /**
+     * Execute on leaf node - remove element directly
+     * */
     static bool removeFromLeaf(FreeNode<T> *node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
@@ -293,6 +281,8 @@ namespace Tree {
      * enough key to be at least half-full and do not need further modification.
      */
     static bool tryBorrow(int order, FreeNode<T> *left, FreeNode<T> *right, bool borrowFromLeft) {
+        assert(left->isLeaf == right->isLeaf);
+
         FreeNode<T>* parent = right->parent;
         size_t index = left->childIndex;
 
@@ -310,24 +300,29 @@ namespace Tree {
 
                 parent->keys[index] = keySiblingMove;
                 if (!right->isLeaf) {
-                    right->keys.push_front(keyParentMove);
-                } else {
-                    right->keys.push_front(keySiblingMove);
-                    // right->keys.push_front(keyParentMove);
-                }
-                left->keys.pop_back();
-
-                assert(left->isLeaf == right->isLeaf);
-                if (!right->isLeaf) {
                     /**
                      * Case 1a. Borrow from left where both are internal nodes
-                     */
+                     * 
+                     * NOTE: If is an internal node, we want to preserve the ordering relationship
+                     * between keys and subtrees. Therefore the parent key is used.
+                     * */
+                    right->keys.push_front(keyParentMove);
+                    left->keys.pop_back();
+
                     right->children.push_front(left->children.back());
                     left->children.pop_back();
-                    right->consolidateChild();
+                } else {
+                    /**
+                     * Case 1b. Borrow from left where both are leaves
+                     * 
+                     * NOTE: If is a leaf node, we want to preserve all keys in the leaf, so we will
+                     * put sibling key into the node instead of the parent key.
+                    */
+                    right->keys.push_front(keySiblingMove);
+                    left->keys.pop_back();
                 }
-                left->updateMin();
-                right->updateMin();
+                left->consolidateChild();
+                right->consolidateChild();
             }
         } else {
             /**
@@ -337,52 +332,44 @@ namespace Tree {
              *      !isHalfFull(left, order)       Left need borrow key
              *      moreHalfFull(right, order)     Right have excessive key
              */
-            assert(left->isLeaf == right->isLeaf);
-
-            if (left->isLeaf) {
-                /**
-                 * Case 3.b. Borrow from right where both are leaves
-                 */
-                while (moreHalfFull(right, order) && !isHalfFull(left, order)) {
-                    T keySiblingMove = right->keys.front();
-
+            while (moreHalfFull(right, order) && !isHalfFull(left, order)) {
+                T keyParentMove = parent->keys[index],
+                  keySiblingMove = right->keys.front();
+                
+                right->keys.pop_front();
+                if (left->isLeaf) {
+                    /**
+                     * Case 3b. Borrow from left where both are leaves
+                     * 
+                     * NOTE: If is a leaf node, we want to preserve all keys in the leaf, so we will
+                     * put sibling key into the node instead of the parent key.
+                     * */
                     left->keys.push_back(keySiblingMove);
-                    right->keys.pop_front();
                     parent->keys[index] = right->keys.front();
-
-                    left->updateMin();
-                    right->updateMin();
-                }
-            } else {
-                /**
-                 * Case 3.a. Borrow from right where both are internal nodes
-                 */
-                while (moreHalfFull(right, order) && !isHalfFull(left, order)) {
-                    T keyParentMove = parent->keys[index],
-                    keySiblingMove = right->keys.front();
-                    
-                    parent->keys[index] = keySiblingMove;
+                } else {
+                    /**
+                     * Case 3a. Borrow from left where both are internal nodes
+                     * 
+                     * NOTE: If is an internal node, we want to preserve the ordering relationship
+                     * between keys and subtrees. Therefore the parent key is used.
+                     * */
                     left->keys.push_back(keyParentMove);
-                    right->keys.pop_front();
+                    parent->keys[index] = keySiblingMove;
                     
                     left->children.push_back(right->children.front());
                     right->children.pop_front();
-                    left->consolidateChild();
-                    right->consolidateChild();
-
-                    left->updateMin();
-                    right->updateMin();
                 }
+                left->consolidateChild();
+                right->consolidateChild();
             }
         }
-        
         return isHalfFull(borrowFromLeft ? right : left, order);
     }
 
     /**
      * Just merge.
      */
-    static void merge(int order, FreeNode<T> *left, FreeNode<T> *right, bool leftMergeToRight, bool needLock) {
+    static void merge(Scheduler *scheduler, int order, FreeNode<T> *left, FreeNode<T> *right, bool leftMergeToRight, bool needLock) {
         FreeNode<T> *parent = left->parent;
         size_t index = left->childIndex;
 
@@ -396,13 +383,8 @@ namespace Tree {
                     right->children.begin(), left->children.begin(), left->children.end()
                 );
             } else {
-                /**
-                 * Case 3.b Merge with right where both are leaves, nothing to do here.
-                 */
+                /** Case 3.b Merge with right where both are leaves, nothing to do here. */
             }
-
-            // parent->keys.erase(parent->keys.begin() + index);
-            // parent->children.erase(parent->children.begin() + left->childIndex);
 
             right->keys.insert(right->keys.begin(), left->keys.begin(), left->keys.end());
             left->keys.clear();
@@ -410,16 +392,25 @@ namespace Tree {
 
             /** Fix linked list */
             right->prev = left->prev;
-            if (needLock) {
-                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                if (left->prev != nullptr) left->prev->next = right;
-            }
-            else {
-                if (left->prev != nullptr) left->prev->next = right;
-            }
+            /**
+             * TODO: This behavior below is potentially race-condition causing. Since when the B+ tree
+             * only have 2 child, merging one will inevitably cause the thread to access another subtree
+             * (which might be owned by some other threads on the same level)
+             * 
+             * TODO: We can resolve this problem by introducing a "releaseQueue" in scheduler and let background
+             * thread do the release job when free.
+             */
+            if (left->prev != nullptr) left->prev->next = right;
+            // if (left->prev != nullptr && needLock) {
+            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            //     left->prev->next = right;
+            // } else {
+            //     left->prev->next = right;
+            // }
             
-            right->updateMin();
             parent->children.erase(parent->children.begin() + left->childIndex);
+
+            scheduler->internal_release_queue.push(left);
             // delete left;
         } else {
             /** Right merge to left */
@@ -435,26 +426,28 @@ namespace Tree {
             } else {
                 /** Case 1b. if are leaves, don't need to do operations above */
             }
-
-            // parent->keys.erase(parent->keys.begin() + index);
-            // parent->children.erase(parent->children.begin() + right->childIndex);
-
             left->keys.insert(left->keys.end(), right->keys.begin(), right->keys.end());
             right->keys.clear();
-
             left->consolidateChild();
 
-            left->next = right->next;
-            /** Fix linked list */
-            if (needLock) {
-                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                if (right->next != nullptr) right->next->prev = left;
-            } else {
-                if (right->next != nullptr) right->next->prev = left;
-            }
 
-            left->updateMin();
+            /** Fix linked list */
+            left->next = right->next;
+            if (right->next != nullptr) right->next->prev = left;
+            // if (right->next != nullptr && needLock) {
+            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            //     right->next->prev = left;
+            // } else {
+            //     right->next->prev = left;
+            // }
+
             parent->children.erase(parent->children.begin() + right->childIndex);  // todo
+
+            /**
+             * Since removing this might cause racing condition, we will handle all of them to the background
+             * thread where they can be destructed in a thread-safe mannor.
+             */
+            scheduler->internal_release_queue.push(right);
             // delete right;
         }
         parent->keys.erase(parent->keys.begin() + index);
@@ -491,14 +484,12 @@ namespace Tree {
 
             new_node->children.insert(new_node->children.begin(), child->children.begin(), child->children.begin() + numToSplitLeft + 1);
             child->children.erase(child->children.begin(), child->children.begin() + numToSplitLeft + 1);
-            
-            new_node->consolidateChild();
-            child->consolidateChild();
         }
 
-        
-        
         parent->children.insert(parent->children.begin() + index, new_node);
+
+        new_node->consolidateChild();
+        child->consolidateChild();
         parent->consolidateChild();
 
         /** Fix linked list */
@@ -506,15 +497,13 @@ namespace Tree {
         new_node->prev = child->prev;
         child->prev    = new_node;
 
-        if (needLock) {
-            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
-        } else {
-            if (new_node->prev != nullptr) new_node->prev->next = new_node;
-        }
-
-        child->updateMin();
-        new_node->updateMin();
+        if (new_node->prev != nullptr) new_node->prev->next = new_node;
+        // if (needLock) {
+        //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+        //     if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
+        // } else {
+        //     if (new_node->prev != nullptr) new_node->prev->next = new_node;
+        // }
 
         assert(isHalfFull(new_node, order));
         assert(isHalfFull(child, order));
@@ -566,9 +555,6 @@ namespace Tree {
         new_node->next = child->next;
         child->next = new_node;
         if (new_node->next != nullptr)  new_node->next->prev = new_node;
-        
-        child->updateMin();
-        new_node->updateMin();
 
         assert(isHalfFull(new_node, order));
         assert(isHalfFull(child, order));

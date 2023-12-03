@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Project name
-project(MyCppProject)
+project(BForest)
 
 # Specify the C++ standard (e.g., C++17)
 set(CMAKE_CXX_STANDARD 17)
@@ -73,7 +73,7 @@ set_target_properties(PalmTreeDebug PROPERTIES LINK_FLAGS "-fsanitize=undefined,
 # PalmTree Test Release build
 add_executable(PalmTreeRelease ${HEADERS} ${SOURCES})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-target_compile_options(PalmTreeRelease PRIVATE -fno-omit-frame-pointer)
+target_compile_options(PalmTreeRelease PRIVATE -fno-omit-frame-pointer -O3)
 
 
 # Packages

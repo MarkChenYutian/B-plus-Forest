@@ -34,17 +34,21 @@ int main() {
     {TESTCASE("ALL")
         std::vector<std::string> Cases = {};
         for (int i = 0; i < 10; i ++) {
-            std::string s = "../test/small_" + std::to_string(i) + ".case";
+            std::string s = "../src/test/small_" + std::to_string(i) + ".case";
             Cases.push_back(s);
         }
         for (int i = 0; i < 10; i ++) {
-            std::string s = "../test/large_" + std::to_string(i) + ".case";
+            std::string s = "../src/test/large_" + std::to_string(i) + ".case";
             Cases.push_back(s);
         }
-        for (int i = 10; i < 12; i ++) {
-            std::string s = "../test/large_" + std::to_string(i) + ".case";
+        for (int i = 0; i < 3; i ++) {
+            std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
             Cases.push_back(s);
         }
+        // for (int i = 10; i < 12; i ++) {
+        //     std::string s = "../src/test/large_" + std::to_string(i) + ".case";
+        //     Cases.push_back(s);
+        // }
         auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 6, 8);
         runner.Run();
     }
