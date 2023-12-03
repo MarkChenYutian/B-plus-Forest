@@ -16,6 +16,7 @@ set(HEADERS
     includes/timing.h
     includes/tree.h
     includes/freetree.hpp
+    includes/freeNode.hpp
     includes/freetree/scheduler.hpp
     includes/freetree/worker.hpp
     includes/freetree/background.hpp

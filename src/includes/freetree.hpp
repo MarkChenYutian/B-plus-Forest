@@ -55,7 +55,7 @@ namespace Tree {
              * will execute all the requests in an asynchronous batch operation
              */
             FreeBPlusTree(int order, int numWorker):
-                ORDER_(order), size_(0), rootPtr(SeqNode<T>(true, true))
+                ORDER_(order), size_(0), rootPtr(FreeNode<T>(true, true))
             {
                 scheduler_ = new Scheduler(numWorker, &rootPtr, order);
             }
@@ -90,7 +90,7 @@ namespace Tree {
 
         private:
             Scheduler<T> *scheduler_;
-            SeqNode<T> rootPtr;
+            FreeNode<T> rootPtr;
             int ORDER_;
             int size_;
         

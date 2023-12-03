@@ -1,10 +1,11 @@
 #pragma once
 #include "tree.h"
+#include "freeNode.hpp"
 #include "freetree.hpp"
 #include <boost/lockfree/queue.hpp>
 
 constexpr int MAXWORKER          = 65;
-constexpr int BATCHSIZE          = 32;
+constexpr int BATCHSIZE          = 10;
 constexpr int TERMINATE_FLAG     = 0x40000000;
 constexpr double COLLECT_TIMEOUT = 0.001;
 constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
@@ -38,7 +39,7 @@ namespace Tree {
         public:
             struct WorkerArgs {
                 Scheduler  *scheduler;
-                SeqNode<T> *node;
+                FreeNode<T> *node;
                 int threadID;
             };
             
@@ -72,7 +73,7 @@ namespace Tree {
                 TreeOp           op;
                 std::optional<T> key;
                 int              idx = -1;
-                SeqNode<T>       *curr_node = nullptr;
+                FreeNode<T>       *curr_node = nullptr;
 
                 void print() {
                     if (key.has_value()) std::cout << toString(op) << ", " << key.value() << " at " << idx;
@@ -81,7 +82,7 @@ namespace Tree {
             };
         
         private:
-            SeqNode<T> *rootPtr;
+            FreeNode<T> *rootPtr;
             int ORDER_;
             pthread_t workers[MAXWORKER];
             WorkerArgs workers_args[MAXWORKER];
@@ -114,7 +115,7 @@ namespace Tree {
              * Will spawn 1 background thread monitoring the Request queue
              *      spawn n worker threads executing the Request queue
              */
-            Scheduler(int numWorker, SeqNode<T> *rootPtr, int order): 
+            Scheduler(int numWorker, FreeNode<T> *rootPtr, int order): 
                 numWorker_(numWorker), rootPtr(rootPtr), ORDER_(order),
                 request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)), 
                 internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE))
@@ -189,10 +190,10 @@ namespace Tree {
                     std::cout << "(Empty)" << std::endl;
                     return;
                 }
-                SeqNode<T>* src = rootPtr;
+                FreeNode<T>* src = rootPtr;
                 int level_cnt = 0;
                 do {
-                    SeqNode<T>* ptr = src;
+                    FreeNode<T>* ptr = src;
                     std::cout << level_cnt << "\t| ";
                     while (ptr != nullptr) {
                         ptr->printKeys();

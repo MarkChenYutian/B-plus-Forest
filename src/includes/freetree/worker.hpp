@@ -11,11 +11,11 @@ namespace Tree {
     template <typename T>
     struct Scheduler<T>::PrivateWorker {
 
-    static inline bool isHalfFull(SeqNode<T> *node, int order) {
+    static inline bool isHalfFull(FreeNode<T> *node, int order) {
         return node->numKeys() >= ((order - 1) / 2);
     }
 
-    static inline bool moreHalfFull(SeqNode<T> *node, int order) {
+    static inline bool moreHalfFull(FreeNode<T> *node, int order) {
         return node->numKeys() > ((order - 1) / 2);
     }
 
@@ -27,7 +27,7 @@ namespace Tree {
         /**
          * CAUTION: The rootPtr is dynamic and subject to change (B+tree depth may increase)
          */
-        SeqNode<T> *rootPtr = wargs->node;
+        FreeNode<T> *rootPtr = wargs->node;
         std::vector<Request> privateQueue;
         while (true) {
             if (scheduler->bg_notify_worker_terminate) break;
@@ -79,9 +79,9 @@ namespace Tree {
     /**
      * Search leaves in lock-free pattern since all threads are only reading at this time.
      */
-    inline static void search(Scheduler *scheduler, std::vector<Request> &privateQueue, SeqNode<T> *rootPtr) {
+    inline static void search(Scheduler *scheduler, std::vector<Request> &privateQueue, FreeNode<T> *rootPtr) {
         for (Request &request : privateQueue) {
-            SeqNode<T>* leafNode = lockFreeFindLeafNode(rootPtr, request.key.value());
+            FreeNode<T>* leafNode = lockFreeFindLeafNode(rootPtr, request.key.value());
             assert(leafNode != nullptr);
             scheduler->curr_batch[request.idx].curr_node = leafNode;
         }
@@ -90,7 +90,7 @@ namespace Tree {
     inline static void leaf_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
         if (requests_in_the_same_node.empty()) return;
 
-        SeqNode<T> *leafNode = requests_in_the_same_node[0].curr_node;
+        FreeNode<T> *leafNode = requests_in_the_same_node[0].curr_node;
         int order = scheduler->ORDER_;
         // leafNode could be root_node, or rootPtr
         
@@ -102,7 +102,7 @@ namespace Tree {
         bool doCheck = true;
         if (leafNode == scheduler->rootPtr) {
             doCheck = false;
-            leafNode = new SeqNode<T>(true);
+            leafNode = new FreeNode<T>(true);
             scheduler->rootPtr->children.push_back(leafNode);
             scheduler->rootPtr->consolidateChild();
             scheduler->rootPtr->isLeaf = false;
@@ -161,7 +161,7 @@ namespace Tree {
         assert(requests_in_the_same_node[0].op == TreeOp::UPDATE);
 
         Request update_req = requests_in_the_same_node[0];
-        SeqNode<T> *node = update_req.curr_node;
+        FreeNode<T> *node = update_req.curr_node;
 
         // node->updateMin();  // TODO: Unnecessary?
 
@@ -177,9 +177,9 @@ namespace Tree {
          * does not change during all operations. So the boundary is valid.
          * 
          */
-        SeqNode<T> *next_child;
-        // for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
-        SeqNode<T> *child = node->children[0];
+        FreeNode<T> *next_child;
+        // for (FreeNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
+        FreeNode<T> *child = node->children[0];
         int child_num = node->numChild();
         int curr = 0;
         while (curr++ < child_num) {
@@ -187,7 +187,7 @@ namespace Tree {
             // bool use_old = false;
             // old_next_child = child->next;
             // next_child = child->next;
-            SeqNode<T> *rightmost = node->children.back();
+            FreeNode<T> *rightmost = node->children.back();
             if (child->numKeys() >= scheduler->ORDER_)  {
                 /**
                  * We would like to guarentee that the splitting operation is constrained in 
@@ -255,7 +255,7 @@ namespace Tree {
         }
     }
 
-    static SeqNode<T>* lockFreeFindLeafNode(SeqNode<T>* node, T key) {
+    static FreeNode<T>* lockFreeFindLeafNode(FreeNode<T>* node, T key) {
         while (!node->isLeaf) {
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
@@ -264,7 +264,7 @@ namespace Tree {
         return node;
     }   
     
-    static std::optional<T> getFromLeaf(SeqNode<T> *node, T key) {
+    static std::optional<T> getFromLeaf(FreeNode<T> *node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
             return *it;
@@ -273,13 +273,13 @@ namespace Tree {
     }
 
     // leaf_execute call insertKeyToLeaf
-    static void insertKeyToLeaf(SeqNode<T> *node, T key) {
+    static void insertKeyToLeaf(FreeNode<T> *node, T key) {
         size_t index = node->getGtKeyIdx(key);
         node->keys.insert(node->keys.begin() + index, key);
     }
 
     // leaf_execute call removeFromLeaf
-    static bool removeFromLeaf(SeqNode<T> *node, T key) {
+    static bool removeFromLeaf(FreeNode<T> *node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
             node->keys.erase(it);
@@ -292,8 +292,8 @@ namespace Tree {
      * @return true if the (right node if borrowFromLeft) | (left node if !borrowFromLeft) get
      * enough key to be at least half-full and do not need further modification.
      */
-    static bool tryBorrow(int order, SeqNode<T> *left, SeqNode<T> *right, bool borrowFromLeft) {
-        SeqNode<T>* parent = right->parent;
+    static bool tryBorrow(int order, FreeNode<T> *left, FreeNode<T> *right, bool borrowFromLeft) {
+        FreeNode<T>* parent = right->parent;
         size_t index = left->childIndex;
 
         if (borrowFromLeft) {
@@ -382,8 +382,8 @@ namespace Tree {
     /**
      * Just merge.
      */
-    static void merge(int order, SeqNode<T> *left, SeqNode<T> *right, bool leftMergeToRight, bool needLock) {
-        SeqNode<T> *parent = left->parent;
+    static void merge(int order, FreeNode<T> *left, FreeNode<T> *right, bool leftMergeToRight, bool needLock) {
+        FreeNode<T> *parent = left->parent;
         size_t index = left->childIndex;
 
         if (leftMergeToRight) {
@@ -461,10 +461,10 @@ namespace Tree {
     }
 
     // internal_execute call bigSplitInternalToLeft
-    static void bigSplitToLeft(int order, SeqNode<T> *child, bool needLock) {
+    static void bigSplitToLeft(int order, FreeNode<T> *child, bool needLock) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf),
+        FreeNode<T> *new_node = new FreeNode<T>(child->isLeaf),
                    *parent = child->parent;
         
         new_node->parent = parent;
@@ -521,10 +521,10 @@ namespace Tree {
     }
 
     // internal_execute call bigSplitInternalToRight
-    static void bigSplitToRight(int order, SeqNode<T> *child) {
+    static void bigSplitToRight(int order, FreeNode<T> *child) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf),
+        FreeNode<T> *new_node = new FreeNode<T>(child->isLeaf),
                    *parent = child->parent;
         
 

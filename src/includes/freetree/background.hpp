@@ -1,6 +1,7 @@
 #pragma once
 #include <set>
 #include "tree.h"
+#include "freeNode.hpp"
 #include "scheduler.hpp"
 
 namespace Tree {
@@ -12,12 +13,12 @@ namespace Tree {
         /**
          * This map is used by background thread to distribute requests to each leaf node in freeTree
          */
-        std::unordered_map<SeqNode<T> *, std::vector<Request>> assign_node_to_thread;
+        std::unordered_map<FreeNode<T> *, std::vector<Request>> assign_node_to_thread;
 
         WorkerArgs *wargs = static_cast<WorkerArgs*>(args);
         const int threadID = wargs->threadID;
         Scheduler *scheduler = wargs->scheduler;
-        SeqNode<T> *rootPtr = wargs->node;
+        FreeNode<T> *rootPtr = wargs->node;
         const int numWorker = scheduler->numWorker_;
 
         while (!isTerminate(scheduler->flag) || getStage(scheduler->flag) != PalmStage::COLLECT) {
@@ -147,15 +148,15 @@ namespace Tree {
                     //     scheduler->debugPrint();
                     // )
 
-                    // FOR DEBUG ONLY
-                    std::unordered_map<SeqNode<T>*, int> existing_nodes;
-                    for (size_t i = 0; i < numWorker; i ++) {
-                        if (scheduler->request_assign[i].empty()) continue;
-                        assert(scheduler->request_assign[i].size() == 1);
-                        assert(existing_nodes.find(scheduler->request_assign[i][0].curr_node) == existing_nodes.end());
-                        existing_nodes[scheduler->request_assign[i][0].curr_node] = 1;
-                    }
-                    // END FOR DEBUG ONLY
+                    // // FOR DEBUG ONLY
+                    // std::unordered_map<FreeNode<T>*, int> existing_nodes;
+                    // for (size_t i = 0; i < numWorker; i ++) {
+                    //     if (scheduler->request_assign[i].empty()) continue;
+                    //     assert(scheduler->request_assign[i].size() == 1);
+                    //     assert(existing_nodes.find(scheduler->request_assign[i][0].curr_node) == existing_nodes.end());
+                    //     existing_nodes[scheduler->request_assign[i][0].curr_node] = 1;
+                    // }
+                    // // END FOR DEBUG ONLY
 
 
                     // Internal update, done by workers
@@ -190,13 +191,13 @@ namespace Tree {
 
     static void distribute(
         Scheduler *scheduler, 
-        std::unordered_map<SeqNode<T> *, std::vector<Request>> &assign_node_to_thread
+        std::unordered_map<FreeNode<T> *, std::vector<Request>> &assign_node_to_thread
     ) {
         for (size_t i = 0; i < BATCHSIZE; i++) {
             Request req = scheduler->curr_batch[i];
             if (req.op == TreeOp::NOP) continue;
 
-            SeqNode<T> *node = req.curr_node;
+            FreeNode<T> *node = req.curr_node;
             assign_node_to_thread[node].push_back(req);
         }
         assert(assign_node_to_thread.size() <= BATCHSIZE);
@@ -216,10 +217,10 @@ namespace Tree {
 
     static bool redistribute(
         Scheduler *scheduler,
-        std::unordered_map<SeqNode<T> *, std::vector<Request>> &assign_node_to_thread
+        std::unordered_map<FreeNode<T> *, std::vector<Request>> &assign_node_to_thread
     ) {
         Request update_req;
-        std::set<SeqNode<T>*> parent_update_min;
+        std::set<FreeNode<T>*> parent_update_min;
 
         while (scheduler->internal_request_queue.pop(update_req)) {
             if (update_req.op == TreeOp::UPDATE_MIN) {
@@ -233,7 +234,7 @@ namespace Tree {
             assign_node_to_thread[update_req.curr_node].push_back(update_req);
         }
 
-        for (SeqNode<T> *parent : parent_update_min) {
+        for (FreeNode<T> *parent : parent_update_min) {
             if (parent == nullptr) continue;
             scheduler->internal_request_queue.push(
                 Request{TreeOp::UPDATE_MIN, std::nullopt, -1, parent}
@@ -269,7 +270,7 @@ namespace Tree {
         int order = scheduler->ORDER_;
 
         assert(rootUpdateRequest.curr_node == scheduler->rootPtr);
-        SeqNode<T> *root_node = rootUpdateRequest.curr_node->children[0];
+        FreeNode<T> *root_node = rootUpdateRequest.curr_node->children[0];
 
         Request update_min_request;
         while (scheduler->internal_request_queue.pop(update_min_request)) {
@@ -300,7 +301,7 @@ namespace Tree {
 
                 DBG_PRINT(std::cout << "啊？还要split几次？？？？\n";);
 
-                SeqNode<T> *new_root_node = new SeqNode<T>(false);
+                FreeNode<T> *new_root_node = new FreeNode<T>(false);
                 scheduler->rootPtr->children[0] = new_root_node;
                 scheduler->rootPtr->consolidateChild();
 
