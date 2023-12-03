@@ -46,7 +46,7 @@ class CaseGenerator:
         with open(self.fileName, "w") as f:
             f.write("\n".join(self.trace))
 
-# for i in range(10):
+for i in range(10, 20):
     # CaseGenerator(1000, 10, 50, f"small_{i}.case", [.5, .2, .2, .1]).generate()
-    # CaseGenerator(100000, 1000, 5000, f"large_{i}.case", [.6, .29, .1, .01]).generate()
-CaseGenerator(10000, 0, 10000, f"IAndG_0.case", [.8, 0., .19, .01]).generate()
+    CaseGenerator(1000000, 1000, 50000, f"large_{i}.case", [.6, .29, .1, .01]).generate()
+# CaseGenerator(10000, 0, 10000, f"IAndG_0.case", [.8, 0., .19, .01]).generate()

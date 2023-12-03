@@ -177,12 +177,16 @@ namespace Tree {
          * does not change during all operations. So the boundary is valid.
          * 
          */
-        SeqNode<T> *next_child, *old_next_child;
-        for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
-        // while (
-            bool use_old = false;
-            old_next_child = child->next;
-            next_child = child->next;
+        SeqNode<T> *next_child;
+        // for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
+        SeqNode<T> *child = node->children[0];
+        int child_num = node->numChild();
+        int curr = 0;
+        while (curr++ < child_num) {
+            // next_child = child->next;
+            // bool use_old = false;
+            // old_next_child = child->next;
+            // next_child = child->next;
             SeqNode<T> *rightmost = node->children.back();
             if (child->numKeys() >= scheduler->ORDER_)  {
                 /**
@@ -193,8 +197,12 @@ namespace Tree {
                  */
                 
                 while (child->numKeys() >= scheduler->ORDER_) {
-                    if (child->childIndex < node->numKeys()) bigSplitToRight(scheduler->ORDER_, child);
+                    if (child->childIndex < node->numKeys()) {
+                        bigSplitToRight(scheduler->ORDER_, child);
+                        child_num ++;
+                    }
                     else bigSplitToLeft(scheduler->ORDER_, child, node->numChild() == 2);
+                    
                 }
                 assert(!node->children.empty());
                 assert(node->children.back() != nullptr);
@@ -206,6 +214,7 @@ namespace Tree {
                     if (tryBorrow(scheduler->ORDER_, child, child->next, false)) continue;
                     // right merge to itself
                     merge(scheduler->ORDER_, child, child->next, false, node->numChild() == 2);
+                    child_num --;
                 } else if (child->childIndex < node->numKeys()) { // middle 
                     // try borrw from left
                     if (tryBorrow(scheduler->ORDER_, child->prev, child, true)) continue;
@@ -217,19 +226,19 @@ namespace Tree {
                      * merge(...) will delete child, which makes it use-after-free to get child->next
                      * So we want to use the previous child->next (old_child_next) in this case.
                      */
-                    use_old = true;
+                    // use_old = true;
                 } else { // rightmost child
                     // try borrow from left
                     if (tryBorrow(scheduler->ORDER_, child->prev, child, true)) continue;
                     // left merge to itself
-                    merge(scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);
-                    
+                    merge(scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);                    
                 }
                 // if (!node->isLeaf) rebuildChildren(node, rightmost);
                 node->consolidateChild();
             }
             
-            next_child = use_old ? old_next_child : child->next;
+            // next_child = use_old ? old_next_child : child->next;
+            child = child->next;
         }
 
         // If current node is filled up, request further update on parent layer
