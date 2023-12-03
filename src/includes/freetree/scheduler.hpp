@@ -4,7 +4,7 @@
 #include <boost/lockfree/queue.hpp>
 
 constexpr int MAXWORKER          = 65;
-constexpr int BATCHSIZE          = 64;
+constexpr int BATCHSIZE          = 9;
 constexpr int TERMINATE_FLAG     = 0x40000000;
 constexpr double COLLECT_TIMEOUT = 0.001;
 constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
@@ -180,6 +180,32 @@ namespace Tree {
 
             static inline void setStage(std::atomic<int> &flag, PalmStage stage) {
                 flag = (flag & (TERMINATE_FLAG)) | stage;
+            }
+
+        public:
+            void debugPrint() {
+                std::cout << "[Free B+ Tree]" << std::endl;
+                if (rootPtr->numChild() == 0) {
+                    std::cout << "(Empty)" << std::endl;
+                    return;
+                }
+                SeqNode<T>* src = rootPtr;
+                int level_cnt = 0;
+                do {
+                    SeqNode<T>* ptr = src;
+                    std::cout << level_cnt << "\t| ";
+                    while (ptr != nullptr) {
+                        ptr->printKeys();
+                        std::cout << "<->";
+                        ptr = ptr->next;
+                    }
+                    level_cnt ++;
+                    std::cout << std::endl;
+                    if (src->numChild() == 0) break;
+                    src = src->children[0];
+                } while (true);
+                
+                std::cout << std::endl;
             }
     };
 }

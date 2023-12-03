@@ -58,12 +58,11 @@ namespace Tree {
         void consolidateChild();
         bool debug_checkParentPointers();
         bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
-        bool debug_checkChildCnt(int ordering);
+        bool debug_checkChildCnt(int ordering, bool allowEmpty=false);
         void updateMin() {
-            if (isLeaf) {
-                assert (numKeys() > 0);
+            if (isLeaf && numKeys() > 0) {
                 minElem = keys.front();
-            } else {
+            } else if (!isLeaf) {
                 assert (numChild() > 0);
                 minElem = children[0]->minElem;
             }

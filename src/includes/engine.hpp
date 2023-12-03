@@ -421,8 +421,7 @@ private:
                 break;
             
             case TestOp::REMOVE:
-                assert(false);
-                // tree.remove(entry.value);
+                tree.remove(entry.value);
                 break;
 
             case TestOp::GET:

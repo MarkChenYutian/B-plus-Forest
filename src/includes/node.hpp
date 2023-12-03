@@ -71,15 +71,18 @@ namespace Tree {
     }
     
     template <typename T>
-    bool SeqNode<T>::debug_checkChildCnt(int order) {
-        if (this->isLeaf) {
-            return numChild() == 0;
+    bool SeqNode<T>::debug_checkChildCnt(int order, bool allowEmpty) {
+        if (isLeaf && !allowEmpty) {
+            return numChild() == 0 && numKeys() >= ((order-1)/2);
+        } else if (isLeaf) {
+            return numChild() == 0 && (numKeys() == 0 || numKeys() >= ((order-1)/2));
         }
+
         if (numKeys() <= 0) return false;
         if (numKeys() >= order) return false;
         if (numChild() != numKeys() + 1) return false;
         for (auto child : this->children) {
-            bool childIsValid = child->debug_checkChildCnt(order);
+            bool childIsValid = child->debug_checkChildCnt(order, allowEmpty);
             if (!childIsValid) return false;
         }
         return true;

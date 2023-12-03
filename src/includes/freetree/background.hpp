@@ -31,7 +31,7 @@ namespace Tree {
             switch (currentState)
             {
             case PalmStage::COLLECT:
-                DBG_PRINT(std::cout << "BG: COLLECT" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: COLLECT" << std::endl;);
                 request_idx = 0;
                 timer = Timer();
                 while (request_idx < BATCHSIZE) {
@@ -41,6 +41,11 @@ namespace Tree {
                     scheduler->curr_batch[request_idx++] = req;
                 }
                 
+
+                // DBG_PRINT(
+                //     std::cout << "BG: Batch Collected, show current tree (after exec prev batch)" << std::endl;
+                //     scheduler->debugPrint();
+                // )
                 scheduler->barrier_cnt = 0;
                 scheduler->bg_move = false;
                 setStage(scheduler->flag, PalmStage::SEARCH);
@@ -49,26 +54,25 @@ namespace Tree {
                 break;
             
             case PalmStage::SEARCH:
-                DBG_PRINT(std::cout << "BG: SEARCH" << std::endl);
+                // DBG_PRINT(std::cout << "BG: SEARCH" << std::endl);
                 setStage(scheduler->flag, PalmStage::DISTRIBUTE);
                 break;
             
             case PalmStage::DISTRIBUTE:
-                DBG_PRINT(std::cout << "BG: DISTRIBUTE" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: DISTRIBUTE" << std::endl;);
                 assign_node_to_thread.clear();
                 distribute(scheduler, assign_node_to_thread);
 
-
-                DBG_PRINT(
-                std::cout << "BG | DISTRIBUTE : assign_node_to_thread" << std::endl;
-                for (int i = 0; i < BATCHSIZE; i ++) {
-                    for (Request &r : scheduler->request_assign[i]) {
-                        r.print();
-                        std::cout << std::endl;
-                    }
-                }
-                std::cout << std::endl;
-                );
+                // DBG_PRINT(
+                // std::cout << "BG | DISTRIBUTE : assign_node_to_thread" << std::endl;
+                // for (int i = 0; i < BATCHSIZE; i ++) {
+                //     for (Request &r : scheduler->request_assign[i]) {
+                //         r.print();
+                //         std::cout << std::endl;
+                //     }
+                // }
+                // std::cout << std::endl;
+                // );
                 
                 scheduler->barrier_cnt = 0;
                 scheduler->bg_move = false; 
@@ -79,42 +83,50 @@ namespace Tree {
                 break;
             
             case PalmStage::EXEC_LEAF:
-                DBG_PRINT(std::cout << "BG: EXEC_LEAF" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: EXEC_LEAF" << std::endl;);
                 setStage(scheduler->flag, PalmStage::REDISTRIBUTE);
                 break;
             
             case PalmStage::REDISTRIBUTE:
-                DBG_PRINT(std::cout << "BG: REDISTRIBUTE" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: REDISTRIBUTE" << std::endl;);
                 assign_node_to_thread.clear();
                 isRootUpdate = redistribute(scheduler, assign_node_to_thread);
 
                 // DBG_PRINT(
-                //     std::cout << "BG";
-                //     scheduler->rootPtr->printKeys();
-                //     scheduler->rootPtr->children[0]->printKeys();
-                //     std::cout << std::endl;  
+                // std::cout << "BG | REDISTRIBUTE : assign_node_to_thread" << std::endl;
+                // for (int i = 0; i < BATCHSIZE; i ++) {
+                //     for (Request &r : scheduler->request_assign[i]) {
+                //         r.print();
+                //         std::cout << std::endl;
+                //     }
+                // }
+                // std::cout << std::endl;
                 // );
-                DBG_PRINT(
-                std::cout << "BG | REDISTRIBUTE : assign_node_to_thread" << std::endl;
-                for (int i = 0; i < BATCHSIZE; i ++) {
-                    for (Request &r : scheduler->request_assign[i]) {
-                        r.print();
-                        std::cout << std::endl;
-                    }
-                }
-                std::cout << std::endl;
-                );
 
                 assert(scheduler->internal_request_queue.empty());
                 if (assign_node_to_thread.size() == 0) {
                     // Case 1: worker finds that none of their parents need update
                     // Case 2: background done dealing root
-                    DBG_PRINT(std::cout << "BG: assign_node_to_thread.size() == 0" << std::endl;);
+                    // DBG_PRINT(std::cout << "BG: assign_node_to_thread.size() == 0" << std::endl;);
                     setStage(scheduler->flag, PalmStage::COLLECT);
                 } else if (isRootUpdate) {
+
+                    // DBG_PRINT(
+                    //     std::cout << "BG: show current tree (before exec root)" << std::endl;
+                    //     scheduler->debugPrint();
+                    // )
+
+
                     assert(assign_node_to_thread.size() == 1);
                     setStage(scheduler->flag, PalmStage::EXEC_ROOT);
                 } else {
+
+                    // DBG_PRINT(
+                    //     std::cout << "BG: show current tree (before exec internal)" << std::endl;
+                    //     scheduler->debugPrint();
+                    // )
+
+
                     // Internal update, done by workers
                     scheduler->barrier_cnt = 0;
                     scheduler->bg_move = false;
@@ -126,12 +138,12 @@ namespace Tree {
                 break;
             
             case PalmStage::EXEC_INTERNAL:
-                DBG_PRINT(std::cout << "BG: EXEC_INTERNAL" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: EXEC_INTERNAL" << std::endl;);
                 setStage(scheduler->flag, PalmStage::REDISTRIBUTE);
                 break;
             
             case PalmStage::EXEC_ROOT:
-                DBG_PRINT(std::cout << "BG: EXEC_ROOT" << std::endl;);
+                // DBG_PRINT(std::cout << "BG: EXEC_ROOT" << std::endl;);
                 root_execute(scheduler, scheduler->request_assign[0]);
                 setStage(scheduler->flag, PalmStage::COLLECT);
                 break;
@@ -155,7 +167,6 @@ namespace Tree {
             SeqNode<T> *node = req.curr_node;
             assign_node_to_thread[node].push_back(req);
         }
-        DBG_PRINT(std::cout << "assign_node_to_thread.size() = " << assign_node_to_thread.size() << " | BATCHSIZE : " << BATCHSIZE << std::endl;);
         assert(assign_node_to_thread.size() <= BATCHSIZE);
         
         size_t idx = 0;
@@ -199,7 +210,6 @@ namespace Tree {
 
         if (assign_node_to_thread.size() == 1) {
             Request req = scheduler->request_assign[0][0];
-            DBG_PRINT(std::cout << "BG | redistribute | assign_node_to_thread.size() == 1\n";);
             if (req.curr_node == scheduler->rootPtr) return true;
         }
         return false;
@@ -220,10 +230,18 @@ namespace Tree {
                     scheduler->rootPtr->children.clear();
                     scheduler->rootPtr->isLeaf = true;
                 }
+                if (root_node->parent == scheduler->rootPtr) {
+                    DBG_PRINT(std::cout << "啊？？？彻底空了，漏点内存也没事吧……\n";);
+                    scheduler->rootPtr->isLeaf = true;
+                    scheduler->rootPtr->children.clear();
+                    break;
+                }
                 assert(root_node->children.size() == 1);
                 root_node = root_node->children[0];
                 scheduler->rootPtr->children[0] = root_node;
                 scheduler->rootPtr->consolidateChild();
+
+                DBG_PRINT(scheduler->debugPrint(););
             }
         } else if (root_node->numKeys() >= order) {
             while (root_node->numKeys() >= order) {

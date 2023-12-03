@@ -34,7 +34,7 @@ namespace Tree {
             {
             case PalmStage::SEARCH:
                 // TODO: update root
-                DBG_PRINT(std::cout << "W: SEARCH" << std::endl;);
+                // DBG_PRINT(std::cout << "W: SEARCH" << std::endl;);
                 privateQueue.clear();
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     if (scheduler->curr_batch[i].op == TreeOp::NOP) {
@@ -46,14 +46,14 @@ namespace Tree {
                 break;
             
             case PalmStage::EXEC_LEAF:
-                DBG_PRINT(std::cout << "W: EXEC_LEAF (" << threadID << ")" << std::endl;);
+                // DBG_PRINT(std::cout << "W: EXEC_LEAF (" << threadID << ")" << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     leaf_execute(scheduler, scheduler->request_assign[i]);
                 }
                 break;
 
             case PalmStage::EXEC_INTERNAL:
-                DBG_PRINT(std::cout << "W: EXEC_INTERNAL" << std::endl;);
+                // DBG_PRINT(std::cout << "W: EXEC_INTERNAL" << std::endl;);
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
                     internal_execute(scheduler, scheduler->request_assign[i]);
                 }
@@ -147,7 +147,6 @@ namespace Tree {
         node->updateMin();
 
         assert(node->children.size() >= 2);
-
         /**
          * NOTE: Since we are updating node->children iteratively (due to batch operation)
          * the node->children is subject to change. However, we make sure the start and end of children
@@ -266,7 +265,11 @@ namespace Tree {
                   keySiblingMove = left->keys.back();
 
                 parent->keys[index] = keySiblingMove;
-                right->keys.push_front(keyParentMove);
+                if (!right->isLeaf) {
+                    right->keys.push_front(keySiblingMove);
+                } else {
+                    right->keys.push_front(keyParentMove);
+                }
                 left->keys.pop_back();
 
                 assert(left->isLeaf == right->isLeaf);
