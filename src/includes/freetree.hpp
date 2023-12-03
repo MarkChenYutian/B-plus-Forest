@@ -34,7 +34,10 @@
  * TODO: async, future, promise API
  * 
  * Using lockfree queue from Boost lilbrary
- * https://www.boost.org/doc/libs/1_76_0/doc/html/boost/lockfree/queue.html
+ *  https://www.boost.org/doc/libs/1_76_0/doc/html/boost/lockfree/queue.html
+ * 
+ * Potential source of Data Racing reported by Thread Sanitizer caused by lockfree queue:
+ *  https://github.com/boostorg/lockfree/issues/78
  */
 
 
@@ -62,7 +65,7 @@ namespace Tree {
                 scheduler_->waitToExit();
                 DBG_PRINT(std::cout << "Really Exited" << std::endl;);
                 #ifdef DEBUG
-                scheduler_->debugPrint();
+                // scheduler_->debugPrint();
                 if (!rootPtr.isLeaf) {
                     assert(rootPtr.children[0]->debug_checkChildCnt(ORDER_, true));
                     assert(rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt));

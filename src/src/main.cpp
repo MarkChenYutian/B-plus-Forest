@@ -19,10 +19,29 @@ int main() {
     //     tree.insert(14);
     // }
 
-    {TESTCASE("Big INSERT & GET")
-        // std::vector<std::string> Cases = {"../test/IAndG_0.case", "../test/small_0.case"};
-        std::vector<std::string> Cases = {"../test/small_0.case"};
-        auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 4, 1);
+    // {TESTCASE("small_2")
+    //     std::vector<std::string> Cases = {"../test/small_2.case"};
+    //     auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 4, 1);
+    //     runner.Run();
+    // }
+
+    // {TESTCASE("Big INSERT & GET")
+    //     std::vector<std::string> Cases = {"../test/IAndG_0.case"};
+    //     auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 4, 1);
+    //     runner.Run();
+    // }
+
+    {TESTCASE("ALL")
+        std::vector<std::string> Cases = {};
+        for (int i = 0; i < 10; i ++) {
+            std::string s = "../test/small_" + std::to_string(i) + ".case";
+            Cases.push_back(s);
+        }
+        for (int i = 0; i < 10; i ++) {
+            std::string s = "../test/large_" + std::to_string(i) + ".case";
+            Cases.push_back(s);
+        }
+        auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 4, 8);
         runner.Run();
     }
 

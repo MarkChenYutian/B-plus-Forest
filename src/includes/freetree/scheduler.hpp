@@ -52,7 +52,7 @@ namespace Tree {
              * --------------use for internal nodes---------------
              * UPDATE - the internal node need to update (child may have splitted or merged)
              */
-            enum TreeOp {NOP, GET, INSERT, DELETE, UPDATE};
+            enum TreeOp {NOP, GET, INSERT, DELETE, UPDATE, UPDATE_MIN};
             static std::string toString(TreeOp op) {
                 switch (op) {
                 case TreeOp::NOP: return "NOP";

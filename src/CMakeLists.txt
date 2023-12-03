@@ -66,25 +66,24 @@ set_target_properties(BtreeTestEngine PROPERTIES LINK_FLAGS "-fsanitize=undefine
 # PalmTree Test build
 add_executable(PalmTreeDebug ${HEADERS} ${SOURCES})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-target_compile_options(PalmTreeDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
-set_target_properties(PalmTreeDebug PROPERTIES LINK_FLAGS "-fsanitize=undefined,address")
+target_compile_options(PalmTreeDebug PRIVATE -fsanitize=undefined,thread -fno-omit-frame-pointer -g -DDEBUG)
+set_target_properties(PalmTreeDebug PROPERTIES LINK_FLAGS "-fsanitize=undefined,thread")
 
 # PalmTree Test Release build
-# add_executable(PalmTreeRelease ${HEADERS} ${SOURCES})
-# # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-# target_compile_options(PalmTreeRelease PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g)
-# set_target_properties(PalmTreeRelease PROPERTIES LINK_FLAGS "-fsanitize=undefined,address")
+add_executable(PalmTreeRelease ${HEADERS} ${SOURCES})
+# Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
+target_compile_options(PalmTreeRelease PRIVATE -fno-omit-frame-pointer)
 
 
 # Packages
 find_package(Threads REQUIRED)
 target_link_libraries(BtreeTestEngine PRIVATE Threads::Threads)
 target_link_libraries(PalmTreeDebug PRIVATE Threads::Threads)
-# target_link_libraries(PalmTreeRelease PRIVATE Threads::Threads)
+target_link_libraries(PalmTreeRelease PRIVATE Threads::Threads)
 
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 target_link_libraries(PalmTreeDebug PRIVATE ${Boost_LIBRARIES})
-# target_link_libraries(PalmTreeRelease PRIVATE ${Boost_LIBRARIES})
+target_link_libraries(PalmTreeRelease PRIVATE ${Boost_LIBRARIES})
 
 add_definitions(-DASAN_OPTIONS=detect_leaks=0)

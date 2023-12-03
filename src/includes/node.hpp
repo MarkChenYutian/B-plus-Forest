@@ -13,12 +13,6 @@ namespace Tree {
     }
 
     template <typename T>
-    T getMin(SeqNode<T>* node) {
-        while (!node->isLeaf) node = node->children[0];
-        return node->keys[0];
-    }
-
-    template <typename T>
     bool SeqNode<T>::debug_checkParentPointers() {
         for (Tree::SeqNode<T>* child : children) {
             if (child->parent != this) 
@@ -33,7 +27,7 @@ namespace Tree {
     template <typename T>
     void SeqNode<T>::printKeys() {
         std::cout << "[";
-        std::cout << childIndex << "|";
+        std::cout << childIndex << ", M:" << minElem << "|";
         for (int i = 0; i < numKeys(); i ++) {
             std::cout << keys[i];
             if (i != numKeys() - 1) std::cout << ",";
@@ -43,11 +37,29 @@ namespace Tree {
 
     template <typename T>
     bool SeqNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
+        if (isLeaf && minElem != -1 && minElem != keys[0]) {
+            std::cout << "\033[1;31m FAILED min(1)";
+            this->printKeys();
+            std::cout << "\033[0m" << std::endl;
+            return false;
+        } else if (minElem != -1 && numChild() > 0 && minElem != children[0]->minElem) {
+            std::cout << "\033[1;31m FAILED min(2)";
+            this->printKeys();
+            std::cout << "\033[0m" << std::endl;
+            return false;
+        }
+
         for (const auto key : this->keys) {
             if (lower.has_value() && key < lower.value()) {                
+                std::cout << "\033[1;31m FAILED lower has value:" << lower.value() << " ";
+                this->printKeys();
+                std::cout << "\033[0m" << std::endl;
                 return false;
             }
             if (upper.has_value() && key >= upper.value()) {
+                std::cout << "\033[1;31m FAILED upper has value:" << upper.value() << " ";
+                this->printKeys();
+                std::cout << "\033[0m" << std::endl;
                 return false;
             }
         }
@@ -56,14 +68,26 @@ namespace Tree {
         if (!this->isLeaf) {
             for (int i = 0; i < numChild(); i ++) {\
                 if (i == 0) {
-                    if (!this->children[i]->debug_checkOrdering(lower, this->keys[0])) 
+                    if (!this->children[i]->debug_checkOrdering(lower, this->keys[0])) {
+                        std::cout << "\033[1;31m FAILED i == 0";
+                        this->printKeys();
+                        std::cout << "\033[0m" << std::endl;
                         return false;
+                    }
                 } else if (i == numChild() - 1) {
-                    if (!this->children[i]->debug_checkOrdering(this->keys.back(), upper))
+                    if (!this->children[i]->debug_checkOrdering(this->keys.back(), upper)) {
+                        std::cout << "\033[1;31m FAILED i == numChild() - 1";
+                        this->printKeys();
+                        std::cout << "\033[0m" << std::endl;
                         return false;
+                    }
                 } else {
-                    if (!this->children[i]->debug_checkOrdering(this->keys[i - 1], this->keys[i]))
+                    if (!this->children[i]->debug_checkOrdering(this->keys[i - 1], this->keys[i])) {
+                        std::cout << "\033[1;31m FAILED else";
+                        this->printKeys();
+                        std::cout << "\033[0m" << std::endl;
                         return false;
+                    }
                 }
             }
         }
@@ -95,4 +119,14 @@ namespace Tree {
             children[id]->childIndex = id;
         }
     }
+
+    template <typename T>
+    bool SeqNode<T>::updateMin() {
+        T origMin = minElem;
+        if (isLeaf && numKeys() > 0) minElem = keys.front();
+        else if (!isLeaf) minElem = children[0]->minElem;
+        
+        return origMin != minElem;
+    }
+    
 }

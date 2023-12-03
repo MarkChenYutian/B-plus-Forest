@@ -2,6 +2,11 @@
 #include "tree.h"
 #include "scheduler.hpp"
 
+/**
+ * Once upon a time, there are two subtrees...
+ */
+std::mutex the_tale_of_two_subtrees;
+
 namespace Tree {
     template <typename T>
     struct Scheduler<T>::PrivateWorker {
@@ -59,8 +64,9 @@ namespace Tree {
                 }
                 break;
             default:
-                assert(false);
-                break;
+                continue;
+                // assert(false);
+                // break;
             }
 
             scheduler->worker_move[threadID] = false;
@@ -92,7 +98,9 @@ namespace Tree {
          * elements of the tree. In this case there is only one worker since all the leaf nodes
          * are the rootPtr.
          */
+        bool doCheck = true;
         if (leafNode == scheduler->rootPtr) {
+            doCheck = false;
             leafNode = new SeqNode<T>(true);
             scheduler->rootPtr->children.push_back(leafNode);
             scheduler->rootPtr->consolidateChild();
@@ -101,7 +109,7 @@ namespace Tree {
 
         for (Request &req : requests_in_the_same_node) {
             assert(req.key.has_value());
-            // assert(req.curr_node == leafNode);
+            assert(!doCheck || req.curr_node == leafNode);
 
             T key = req.key.value();
             auto it = std::lower_bound(leafNode->keys.begin(), leafNode->keys.end(), key);
@@ -131,8 +139,13 @@ namespace Tree {
                 Request{TreeOp::UPDATE, std::nullopt, -1, leafNode->parent}
             );
             
+        } 
+        if (leafNode->updateMin()) {
+            assert(leafNode->parent != nullptr);
+            scheduler->internal_request_queue.push(
+                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, leafNode->parent}
+            );
         }
-        leafNode->updateMin();
     }
 
     inline static void internal_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
@@ -144,7 +157,7 @@ namespace Tree {
         Request update_req = requests_in_the_same_node[0];
         SeqNode<T> *node = update_req.curr_node;
 
-        node->updateMin();
+        // node->updateMin();  // TODO: Unnecessary?
 
         assert(node->children.size() >= 2);
         /**
@@ -153,7 +166,12 @@ namespace Tree {
          * does not change during all operations. So the boundary is valid.
          * 
          */
-        for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=child->next) { 
+        SeqNode<T> *next_child, *old_next_child;
+        for (SeqNode<T> *child = node->children[0]; child != node->children.back()->next; child=next_child) { 
+            bool use_old = false;
+            old_next_child = child->next;
+            next_child = child->next;
+            SeqNode<T> *rightmost = node->children.back();
             if (child->numKeys() >= scheduler->ORDER_)  {
                 /**
                  * We would like to guarentee that the splitting operation is constrained in 
@@ -161,51 +179,55 @@ namespace Tree {
                  *
                  * NOTE: Edge case - when we can split the child, we want to split them completely.
                  */
+                
                 while (child->numKeys() >= scheduler->ORDER_) {
                     if (child->childIndex < node->numKeys()) bigSplitToRight(scheduler->ORDER_, child);
                     else bigSplitToLeft(scheduler->ORDER_, child);
-
-                    if (!node->isLeaf) {
-                        rebuildChildren(node, node->children.back());    
-                    } else {
-                        node->updateMin();
-                    }
-                    
                 }
+                assert(!node->children.empty());
+                assert(node->children.back() != nullptr);
+                if (!node->isLeaf) rebuildChildren(node, rightmost);
             } else if (!isHalfFull(child, scheduler->ORDER_)) {
                 if (child->childIndex == 0) { // leftmost child
                     // try borrow from right
                     if (tryBorrow(scheduler->ORDER_, child, child->next, false)) continue;
                     // right merge to itself
-                    merge(scheduler->ORDER_, child, child->next, false);
+                    merge(scheduler->ORDER_, child, child->next, false, node->numChild() == 2);
                 } else if (child->childIndex < node->numKeys()) { // middle 
                     // try borrw from left
                     if (tryBorrow(scheduler->ORDER_, child->prev, child, true)) continue;
                     // try borrow from right
                     if (tryBorrow(scheduler->ORDER_, child, child->next, false)) continue;
                     // merge with right
-                    merge(scheduler->ORDER_, child, child->next, true);
+                    merge(scheduler->ORDER_, child, child->next, true, node->numChild() == 2);
+                    /**
+                     * merge(...) will delete child, which makes it use-after-free to get child->next
+                     * So we want to use the previous child->next (old_child_next) in this case.
+                     */
+                    use_old = true;
                 } else { // rightmost child
                     // try borrow from left
                     if (tryBorrow(scheduler->ORDER_, child->prev, child, true)) continue;
                     // left merge to itself
-                    merge(scheduler->ORDER_, child->prev, child, true);
+                    merge(scheduler->ORDER_, child->prev, child, true, node->numChild() == 2);
+                    
                 }
-            } else {
-                continue;
+                if (!node->isLeaf) rebuildChildren(node, rightmost);
             }
             
-            if (node->isLeaf) {
-                node->updateMin();
-            } else {
-                rebuildChildren(node, node->children.back());    
-            }
+            next_child = use_old ? old_next_child : child->next;
         }
 
         // If current node is filled up, request further update on parent layer
         if (node->numKeys() >= scheduler->ORDER_ || !isHalfFull(node, scheduler->ORDER_)) {
             scheduler->internal_request_queue.push(
                 Request{TreeOp::UPDATE, std::nullopt, -1, node->parent}
+            );
+        }
+        if (node->updateMin()) {
+            assert(node->parent != nullptr);
+            scheduler->internal_request_queue.push(
+                Request{TreeOp::UPDATE_MIN, std::nullopt, -1, node->parent}
             );
         }
     }
@@ -238,7 +260,6 @@ namespace Tree {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
             node->keys.erase(it);
-            node->updateMin();
             return true;
         }
         return false;
@@ -266,9 +287,10 @@ namespace Tree {
 
                 parent->keys[index] = keySiblingMove;
                 if (!right->isLeaf) {
-                    right->keys.push_front(keySiblingMove);
-                } else {
                     right->keys.push_front(keyParentMove);
+                } else {
+                    right->keys.push_front(keySiblingMove);
+                    // right->keys.push_front(keyParentMove);
                 }
                 left->keys.pop_back();
 
@@ -281,6 +303,7 @@ namespace Tree {
                     left->children.pop_back();
                     right->consolidateChild();
                 }
+                left->updateMin();
                 right->updateMin();
             }
         } else {
@@ -304,6 +327,7 @@ namespace Tree {
                     right->keys.pop_front();
                     parent->keys[index] = right->keys.front();
 
+                    left->updateMin();
                     right->updateMin();
                 }
             } else {
@@ -323,6 +347,7 @@ namespace Tree {
                     left->consolidateChild();
                     right->consolidateChild();
 
+                    left->updateMin();
                     right->updateMin();
                 }
             }
@@ -334,7 +359,7 @@ namespace Tree {
     /**
      * Just merge.
      */
-    static void merge(int order, SeqNode<T> *left, SeqNode<T> *right, bool leftMergeToRight) {
+    static void merge(int order, SeqNode<T> *left, SeqNode<T> *right, bool leftMergeToRight, bool needLock) {
         SeqNode<T> *parent = left->parent;
         size_t index = left->childIndex;
 
@@ -361,9 +386,23 @@ namespace Tree {
             right->consolidateChild();
 
             /** Fix linked list */
+            // if (needLock) {
+            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            //     right->prev = left->prev;
+            //     if (left->prev != nullptr) left->prev->next = right;
+            // } else {
+            //     right->prev = left->prev;
+            //     if (left->prev != nullptr) left->prev->next = right;
+            // }
             right->prev = left->prev;
-            if (left->prev != nullptr) left->prev->next = right;
-
+            if (needLock && left->prev != nullptr) {
+                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+                left->prev->next = right;
+            }
+            else {
+                if (left->prev != nullptr) left->prev->next = right;
+            }
+            
             right->updateMin();
             delete left;
         } else {
@@ -389,9 +428,14 @@ namespace Tree {
 
             left->consolidateChild();
 
-            /** Fix linked list */
             left->next = right->next;
-            if (right->next != nullptr) right->next->prev = left;
+            /** Fix linked list */
+            if (needLock && right->next != nullptr) {
+                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+                right->next->prev = left;
+            } else {
+                if (right->next != nullptr) right->next->prev = left;
+            }
 
             left->updateMin();
             delete right;
@@ -402,8 +446,7 @@ namespace Tree {
     static void bigSplitToLeft(int order, SeqNode<T> *child) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *parent = child->parent,
-                   *new_node = new SeqNode<T>(child->isLeaf);
+        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf);
 
         size_t numToSplitLeft;
         if ((child->numKeys() - order) >= ((order - 1) / 2)) { 
@@ -451,8 +494,7 @@ namespace Tree {
     static void bigSplitToRight(int order, SeqNode<T> *child) {
         assert (child->numKeys() >= order);
 
-        SeqNode<T> *parent = child->parent,
-                   *new_node = new SeqNode<T>(child->isLeaf);
+        SeqNode<T> *new_node = new SeqNode<T>(child->isLeaf);
 
         size_t numToSplitRight;
         if ((child->numKeys() - order) >= ((order-1) / 2)) { 
@@ -504,6 +546,7 @@ namespace Tree {
         node->children.clear();
 
         for (SeqNode<T> *ptr = node->children[0]; ptr != rightMost; ptr = ptr->next) {
+            // if (ptr == nullptr) break;
             ptr->childIndex = childIdx;
             ptr->parent = node;
             ptr->updateMin();
@@ -511,9 +554,6 @@ namespace Tree {
             node->children.push_back(ptr);
             childIdx++;
         }
-
-        node->updateMin();
-        
     }
 };
 }
