@@ -1,7 +1,7 @@
 #pragma once
 #include <cassert>
 #include <optional>
-#include "tree.h"
+#include "../tree.h"
 #include "freeNode.hpp"
 
 namespace Tree {

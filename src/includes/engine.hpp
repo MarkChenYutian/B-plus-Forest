@@ -8,7 +8,10 @@
 #include <sys/wait.h>
 #include <type_traits>
 #include <barrier>
-#include "node.hpp"
+#include <optional>
+#include <iostream>
+#include <stdio.h>
+#include "tree.h"
 
 pthread_barrier_t barrier;
 pthread_barrier_t barrier2;
@@ -72,7 +75,7 @@ struct WorkerArgs {
 };
 
 template <typename T, typename K>
-class correctnessEngine
+class seqEngine
 {
 static_assert(std::is_base_of<Tree::ITree<K>, T>::value, "T must inherit from Tree::ITree");
 
@@ -84,7 +87,7 @@ private:
     std::vector<TestEntry>   currCase;
 
 public:
-    correctnessEngine(std::vector<std::string> paths, int order, int numProcess): 
+    seqEngine(std::vector<std::string> paths, int order, int numProcess): 
         paths(paths), order(order), numProcess(numProcess)
         {};
 
@@ -368,7 +371,7 @@ private:
 };
 
 template <typename T, typename K>
-class lockfreeCheckEngine
+class lockfreeEngine
 {
 private:
     int order;
@@ -377,7 +380,7 @@ private:
     std::vector<TestEntry>   currCase;
 
 public:
-    lockfreeCheckEngine(std::vector<std::string> paths, int order, int numWorker): 
+    lockfreeEngine(std::vector<std::string> paths, int order, int numWorker): 
         paths(paths), order(order), numWorker(numWorker)
         {};
 
@@ -433,5 +436,60 @@ private:
     }
 };
 
+template <typename T, typename K>
+class distriEngine
+{
+private:
+    int order;
+    int numWorker;
+    std::vector<std::string> paths;
+    std::vector<TestEntry>   currCase;
+
+public:
+    distriEngine(std::vector<std::string> paths, int order, int numWorker): 
+        paths(paths), order(order), numWorker(numWorker)
+        {};
+
+    void Run() {
+        
+    }
+
+private:
+    void loadTestCase(const std::string &filePath) {
+        currCase.clear();
+        std::ifstream file(filePath);
+        std::string   line;
+        if (!file) {
+            std::cerr << "Unable to load file at " << filePath;
+            assert(false);
+        }
+        while (std::getline(file, line)) {
+            TestEntry entry;
+            entry.parse(line);
+            currCase.push_back(entry);
+        }
+    }
+
+    bool runTestCase(T &tree) {
+        for (size_t idx = 0; idx < currCase.size(); idx ++) {
+            TestEntry entry = currCase[idx];
+
+            switch (entry.op){
+            case TestOp::INSERT:
+                tree.insert(entry.value);
+                break;
+            
+            case TestOp::REMOVE:
+                tree.remove(entry.value);
+                break;
+
+            case TestOp::GET:
+                tree.get(entry.value);
+                break;
+            }
+        }
+        return true;
+    }
+};
 
 }

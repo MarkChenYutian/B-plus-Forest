@@ -1,6 +1,6 @@
 #pragma once
 #include <set>
-#include "tree.h"
+#include "../tree.h"
 #include "freeNode.hpp"
 #include "scheduler.hpp"
 

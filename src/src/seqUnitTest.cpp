@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cassert>
 #include <optional>
-#include "node.hpp"
-#include "seqTree.hpp"
+#include "seqTree/seqNode.hpp"
+#include "seqTree/seqTree.hpp"
 
 #define TESTCASE(name) (std::cout << "\n\n\033[1;35mUnit Test '" << name << "' @ line " << __LINE__ << "\n\033[0m");
 

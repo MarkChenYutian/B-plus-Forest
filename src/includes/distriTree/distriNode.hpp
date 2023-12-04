@@ -1,11 +1,11 @@
 #pragma once
 #include <cassert>
 #include <optional>
-#include "tree.h"
+#include "../tree.h"
 
 namespace Tree {
     template <typename T>
-    void LockNode<T>::releaseAll() {
+    void DistriNode<T>::releaseAll() {
         if (!isLeaf) {
             for (auto child : children) child->releaseAll();
         }
@@ -13,21 +13,21 @@ namespace Tree {
     }
 
     template <typename T>
-    T getMin(LockNode<T>* node) {
+    T getMin(DistriNode<T>* node) {
         while (!node->isLeaf) node = node->children[0];
         return node->keys[0];
     }
 
     template <typename T>
-    void LockNode<T>::rebuild() {
+    void DistriNode<T>::rebuild() {
         auto old_children = children;
-        children = std::deque<LockNode<T>*>();
+        children = std::deque<DistriNode<T>*>();
         
 
         auto left_most_prev = old_children[0] -> prev;
         auto right_most_next = old_children.back() -> next;
 
-        for (LockNode<T>* child : old_children) {
+        for (DistriNode<T>* child : old_children) {
             if (child->numKeys() == 0) {
                 /** TODO: This is a leak, but adding back will cause unlock a free'd mutex */
                 // delete child;
@@ -59,8 +59,8 @@ namespace Tree {
     }
 
     template <typename T>
-    bool LockNode<T>::debug_checkParentPointers() {
-        for (Tree::LockNode<T>* child : children) {
+    bool DistriNode<T>::debug_checkParentPointers() {
+        for (Tree::DistriNode<T>* child : children) {
             if (child->parent != this) 
                 return false;
             if (!(child->isLeaf || child->debug_checkParentPointers())) 
@@ -71,7 +71,7 @@ namespace Tree {
     }
     
     template <typename T>
-    void LockNode<T>::printKeys() {
+    void DistriNode<T>::printKeys() {
         std::cout << "[";
         for (int i = 0; i < numKeys(); i ++) {
             std::cout << keys[i];
@@ -81,7 +81,7 @@ namespace Tree {
     }
 
     template <typename T>
-    bool LockNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
+    bool DistriNode<T>::debug_checkOrdering(std::optional<T> lower, std::optional<T> upper) {
         for (const auto key : this->keys) {
             if (lower.has_value() && key < lower.value()) {                
                 return false;
@@ -109,7 +109,7 @@ namespace Tree {
     }
     
     template <typename T>
-    bool LockNode<T>::debug_checkChildCnt(int ordering) {
+    bool DistriNode<T>::debug_checkChildCnt(int ordering) {
         if (this->isLeaf) {
             return numChild() == 0;
         }
@@ -124,7 +124,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void LockNode<T>::consolidateChild() {
+    void DistriNode<T>::consolidateChild() {
         for (size_t id = 0; id < numChild(); id ++) {
             children[id]->parent = this;
             children[id]->childIndex = id;

@@ -3,14 +3,14 @@
 #include <iostream>
 #include <cassert>
 #include <optional>
-#include "tree.h"
+#include "../tree.h"
 
 namespace Tree {
     template<typename T>
-    FineLockBPlusTree<T>::FineLockBPlusTree(int order): ORDER_(order), size_(0), rootPtr(LockNode<T>(true, true)) {}
+    FineLockBPlusTree<T>::FineLockBPlusTree(int order): ORDER_(order), size_(0), rootPtr(FineNode<T>(true, true)) {}
 
     template <typename T>
-    LockNode<T> *FineLockBPlusTree<T>::getRoot() {
+    FineNode<T> *FineLockBPlusTree<T>::getRoot() {
         return &rootPtr;
     }
 
@@ -29,11 +29,11 @@ namespace Tree {
         size_ ++;
 
         LockDeque<T> dq = LockDeque<T>(false);
-        LockNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
+        FineNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
         DBG_ASSERT(dq.isLocked(node));
 
         if (node == &rootPtr) {
-            LockNode<T> *root = new LockNode<T>(true);
+            FineNode<T> *root = new FineNode<T>(true);
             insertKey(root, key);
 
             rootPtr.children.push_back(root);
@@ -52,14 +52,14 @@ namespace Tree {
     }
 
     template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(LockNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(FineNode<T>* node, T key, LockDeque<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
         while (!node->isLeaf) {
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            LockNode<T> *child = node->children[index];
+            FineNode<T> *child = node->children[index];
 
             dq.retrieveLock(child);
             dq.releasePrevReadLocks();
@@ -70,7 +70,7 @@ namespace Tree {
     }
 
     template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(LockNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(FineNode<T>* node, T key, LockDeque<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
@@ -81,7 +81,7 @@ namespace Tree {
 
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            LockNode<T> *child = node->children[index];
+            FineNode<T> *child = node->children[index];
             dq.retrieveLock(child);
             
             node = child;
@@ -91,7 +91,7 @@ namespace Tree {
     }
 
     template <typename T>
-    LockNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(LockNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(FineNode<T>* node, T key, LockDeque<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
@@ -101,7 +101,7 @@ namespace Tree {
             }
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            LockNode<T> *child = node->children[index];
+            FineNode<T> *child = node->children[index];
             dq.retrieveLock(child);
             node = child;
         }
@@ -109,15 +109,15 @@ namespace Tree {
     }
     
     template <typename T>
-    void FineLockBPlusTree<T>::insertKey(LockNode<T>* node, T key) {
+    void FineLockBPlusTree<T>::insertKey(FineNode<T>* node, T key) {
         size_t index = node->getGtKeyIdx(key);
         node->keys.insert(node->keys.begin() + index, key);
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::splitNode(LockNode<T>* node, T key) {
+    void FineLockBPlusTree<T>::splitNode(FineNode<T>* node, T key) {
         DBG_ASSERT(node != &rootPtr);
-        LockNode<T> *new_node = new LockNode<T>(node->isLeaf);
+        FineNode<T> *new_node = new FineNode<T>(node->isLeaf);
         auto middle   = node->numKeys() / 2;
         auto mid_key  = node->keys[middle];
 
@@ -197,7 +197,7 @@ namespace Tree {
              * the left-most and right-most child.
              */
             assert (newNodeOnRight);
-            LockNode<T> *new_root = new LockNode<T>(false);
+            FineNode<T> *new_root = new FineNode<T>(false);
             new_root->children.push_back(node);
             new_root->children.push_back(new_node);
             
@@ -219,7 +219,7 @@ namespace Tree {
              * register new_node into some parent node and maybe recursively split the 
              * parent if needed.
              */
-            LockNode<T> *parent = node->parent;
+            FineNode<T> *parent = node->parent;
             size_t index = node->childIndex;
                         
             if (newNodeOnRight) {
@@ -272,7 +272,7 @@ namespace Tree {
     template <typename T>
     std::optional<T> FineLockBPlusTree<T>::get(T key) {
         LockDeque<T> dq = LockDeque<T>(true);
-        LockNode<T> *node = findLeafNodeRead(&rootPtr, key, dq);
+        FineNode<T> *node = findLeafNodeRead(&rootPtr, key, dq);
 
         DBG_ASSERT(dq.isLocked(node));
 
@@ -295,19 +295,19 @@ namespace Tree {
     }
 
     template <typename T>
-    bool FineLockBPlusTree<T>::isHalfFull(LockNode<T>* node) {
+    bool FineLockBPlusTree<T>::isHalfFull(FineNode<T>* node) {
         return node->numKeys() >= (ORDER_ / 2);
     }
 
     template <typename T>
-    bool FineLockBPlusTree<T>::moreHalfFull(LockNode<T>* node) {
+    bool FineLockBPlusTree<T>::moreHalfFull(FineNode<T>* node) {
         return node->numKeys() > (ORDER_ / 2);
     }
 
     template <typename T>
     bool FineLockBPlusTree<T>::remove(T key) {
         LockDeque<T> dq = LockDeque<T>(false);
-        LockNode<T>* node = findLeafNodeDelete(&rootPtr, key, dq);
+        FineNode<T>* node = findLeafNodeDelete(&rootPtr, key, dq);
         DBG_ASSERT(dq.isLocked(node));
         /**
          * NOTE: If the tree is empty, then node must be rootPtr
@@ -350,7 +350,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeBorrow(LockNode<T> *node, LockDeque<T> &dq) {
+    void FineLockBPlusTree<T>::removeBorrow(FineNode<T> *node, LockDeque<T> &dq) {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == &rootPtr) {
             if (node->numKeys() == 0) {
@@ -380,7 +380,7 @@ namespace Tree {
              * 1. try to borrow from left node (node -> prev)
              * 2. If 1) failed, try to merge with left node (node -> prev)
              */
-            LockNode<T> *leftNode = node->prev;
+            FineNode<T> *leftNode = node->prev;
             DBG_ASSERT(leftNode->parent == node->parent);
             if (moreHalfFull(leftNode)) {
                 size_t index = leftNode->childIndex;
@@ -423,7 +423,7 @@ namespace Tree {
              * 1. try to borrow from right node (node -> next)
              * 2. If 1) failed, try to merge with right node (node -> next)
              */
-            LockNode<T> *rightNode = node->next;
+            FineNode<T> *rightNode = node->next;
             DBG_ASSERT(rightNode->parent == node->parent);
 
             if (moreHalfFull(rightNode)) {
@@ -468,9 +468,9 @@ namespace Tree {
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeMerge(LockNode<T>* node, LockDeque<T> &dq) {
+    void FineLockBPlusTree<T>::removeMerge(FineNode<T>* node, LockDeque<T> &dq) {
         bool leftMergeToRight;
-        LockNode<T> *leftNode, *rightNode, *parent;
+        FineNode<T> *leftNode, *rightNode, *parent;
 
         /**
          * NOTE: No need to handle root here since we always first try to borrow
@@ -597,7 +597,7 @@ namespace Tree {
     }
     
     template <typename T>
-    bool FineLockBPlusTree<T>::removeFromLeaf(LockNode<T>* node, T key) {
+    bool FineLockBPlusTree<T>::removeFromLeaf(FineNode<T>* node, T key) {
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         if (it != node->keys.end() && *it == key) {
             node->keys.erase(it);
@@ -625,11 +625,11 @@ namespace Tree {
         bool isValidChildCnt = rootPtr.children[0]->debug_checkChildCnt(ORDER_);
         if (!isValidChildCnt) return false;
 
-        Tree::LockNode<T>* src = rootPtr.children[0];
+        Tree::FineNode<T>* src = rootPtr.children[0];
         do {
             if (src->numChild() == 0) break;
             src = src->children[0];
-            LockNode<T> *ckptr = src;
+            FineNode<T> *ckptr = src;
 
             // Check the leaf nodes linked list
             while (ckptr->next != nullptr) {
@@ -675,10 +675,10 @@ namespace Tree {
             std::cout << "(Empty)" << std::endl;
             return;
         }
-        LockNode<T>* src = &rootPtr;
+        FineNode<T>* src = &rootPtr;
         int level_cnt = 0;
         do {
-            LockNode<T>* ptr = src;
+            FineNode<T>* ptr = src;
             std::cout << level_cnt << "\t| ";
             while (ptr != nullptr) {
                 ptr->printKeys();
@@ -696,7 +696,7 @@ namespace Tree {
 
     template <typename T>
     std::vector<T> FineLockBPlusTree<T>::toVec() {
-        LockNode<T> *ptr = &rootPtr;
+        FineNode<T> *ptr = &rootPtr;
         std::vector<T> vec;
         if (ptr == nullptr) return vec;
         

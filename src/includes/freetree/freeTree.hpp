@@ -1,5 +1,5 @@
 #pragma once
-#include "tree.h"
+#include "../tree.h"
 #include "timing.h"
 #include "freetree/scheduler.hpp"
 #include "freetree/background.hpp"

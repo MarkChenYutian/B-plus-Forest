@@ -1,5 +1,5 @@
 #pragma once
-#include "tree.h"
+#include "../tree.h"
 #include "freeNode.hpp"
 #include "freetree.hpp"
 #include <barrier>

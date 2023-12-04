@@ -1,6 +1,8 @@
 #pragma once
 #include <optional>
 #include "tree.h"
+#include "seqTree/seqNode.hpp"
+#include "seqTree/seqTree.hpp"
 
 namespace Tree {
     template <typename T>

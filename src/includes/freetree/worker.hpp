@@ -1,6 +1,6 @@
 #pragma once
 #include <barrier>
-#include "tree.h"
+#include "../tree.h"
 #include "scheduler.hpp"
 
 /**

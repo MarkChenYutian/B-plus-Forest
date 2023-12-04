@@ -124,23 +124,23 @@ namespace Tree {
      * NOTE: A tree node for finegrained locked version of B+ tree
      */
     template <typename T>
-    struct LockNode {
+    struct FineNode {
         std::shared_mutex latch;
 
         bool isLeaf;                        // Check if node is leaf node
         bool isDummy;                       // Check if node is dummy node
         int childIndex;                     // Which child am I in parent? (-1 if no parent)
         std::deque<T> keys;                 // Keys
-        std::deque<LockNode<T>*> children;  // Children
-        LockNode<T>* parent;                // Pointer to parent node
-        LockNode<T>* next;                  // Pointer to left sibling
-        LockNode<T>* prev;                  // Pointer to right sibling
+        std::deque<FineNode<T>*> children;  // Children
+        FineNode<T>* parent;                // Pointer to parent node
+        FineNode<T>* next;                  // Pointer to left sibling
+        FineNode<T>* prev;                  // Pointer to right sibling
 
-        LockNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
+        FineNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
         /**
          * TODO: Maybe need to grab the unique lock on destruct?
          */
-        // ~LockNode() {std::unique_lock lock(read_latch);}
+        // ~FineNode() {std::unique_lock lock(read_latch);}
 
         /**
          * Regenerate the node's keys based on current child.
@@ -171,15 +171,15 @@ namespace Tree {
     template <typename T>
     struct LockDeque {
         bool isShared;
-        std::deque<LockNode<T>*> nodes;
+        std::deque<FineNode<T>*> nodes;
         
         LockDeque(bool isShared = false): isShared(isShared){}
-        void retrieveLock(LockNode<T> *ptr) {
+        void retrieveLock(FineNode<T> *ptr) {
             if (isShared) ptr->latch.lock_shared();
             else ptr->latch.lock();
             nodes.push_back(ptr);
         }
-        bool isLocked(LockNode<T> *ptr) {
+        bool isLocked(FineNode<T> *ptr) {
             for (const auto node : nodes) {
                 if (node == ptr) return true;
             }
@@ -213,7 +213,7 @@ namespace Tree {
                 nodes.pop_front();
             }
         }
-        void popAndDelete(LockNode<T> *ptr) {
+        void popAndDelete(FineNode<T> *ptr) {
             DBG_ASSERT(!isShared);
             DBG_ASSERT(isLocked(ptr->parent));
             for (size_t idx = 0; idx < nodes.size(); idx ++) {
@@ -284,10 +284,9 @@ namespace Tree {
     template<typename T>
     class FineLockBPlusTree : public ITree<T> {
         private:
-            LockNode<T> rootPtr;
+            FineNode<T> rootPtr;
             int ORDER_;
             std::atomic<int> size_ = 0;
-            std::shared_mutex rootLock;
         
         public:
             FineLockBPlusTree(int order = 3);
@@ -300,22 +299,44 @@ namespace Tree {
             void print();
             std::optional<T> get(T key);
             std::vector<T> toVec();
-            LockNode<T> *getRoot();
+            FineNode<T> *getRoot();
         
         private:
             // Private helper functions
-            LockNode<T>* findLeafNodeInsert(LockNode<T>* node, T key, LockDeque<T> &dq);
-            LockNode<T>* findLeafNodeDelete(LockNode<T>* node, T key, LockDeque<T> &dq);
-            LockNode<T>* findLeafNodeRead(LockNode<T>* node, T key, LockDeque<T> &dq);
+            FineNode<T>* findLeafNodeInsert(FineNode<T>* node, T key, LockDeque<T> &dq);
+            FineNode<T>* findLeafNodeDelete(FineNode<T>* node, T key, LockDeque<T> &dq);
+            FineNode<T>* findLeafNodeRead(FineNode<T>* node, T key, LockDeque<T> &dq);
 
-            void splitNode(LockNode<T>* node, T key);
-            void insertKey(LockNode<T>* node, T key);
-            bool removeFromLeaf(LockNode<T>* node, T key);
+            void splitNode(FineNode<T>* node, T key);
+            void insertKey(FineNode<T>* node, T key);
+            bool removeFromLeaf(FineNode<T>* node, T key);
 
-            bool isHalfFull(LockNode<T>* node);
-            bool moreHalfFull(LockNode<T>* node);
+            bool isHalfFull(FineNode<T>* node);
+            bool moreHalfFull(FineNode<T>* node);
 
-            void removeBorrow(LockNode<T>* node, LockDeque<T> &dq);
-            void removeMerge(LockNode<T>* node, LockDeque<T> &dq);
+            void removeBorrow(FineNode<T>* node, LockDeque<T> &dq);
+            void removeMerge(FineNode<T>* node, LockDeque<T> &dq);
+    };
+
+    template<typename T>
+    class DistributeBPlusTree : public ITree<T> {
+        private:
+            FineNode<T> rootPtr;
+            int ORDER_;
+            std::atomic<int> size_ = 0;
+        
+        public:
+            DistributeBPlusTree(int order, int rank);
+            ~DistributeBPlusTree();
+
+            bool debug_checkIsValid(bool verbose);
+            int size();
+
+            void insert(T key);
+            bool remove(T key);
+            void print();
+            std::optional<T> get(T key);
+            std::vector<T> toVec();
+            FineNode<T> *getRoot();
     };
 }
