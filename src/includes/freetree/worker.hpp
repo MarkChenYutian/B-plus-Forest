@@ -1,11 +1,16 @@
 #pragma once
+#include <barrier>
 #include "tree.h"
 #include "scheduler.hpp"
 
 /**
  * Once upon a time, there are two subtrees...
  */
+#ifdef DEBUG
+
 std::mutex the_tale_of_two_subtrees;
+
+#endif
 
 namespace Tree {
     template <typename T>
@@ -29,10 +34,9 @@ namespace Tree {
          */
         FreeNode<T> *rootPtr = wargs->node;
         std::vector<Request> privateQueue;
-        while (true) {
-            if (scheduler->bg_notify_worker_terminate) break;
-            if (scheduler->bg_move || !scheduler->worker_move[threadID]) continue;
-            
+        while (!scheduler->bg_notify_worker_terminate) {
+            // if (scheduler->bg_move || !scheduler->worker_move[threadID]) continue
+            if (scheduler->bg_move) continue;            
             PalmStage currentState = getStage(scheduler->flag);
 
             switch (currentState)
@@ -40,6 +44,7 @@ namespace Tree {
             case PalmStage::SEARCH:
                 privateQueue.clear();
                 for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
+                    DBG_ASSERT(scheduler->curr_batch[i].op != TreeOp::UPDATE);
                     if (scheduler->curr_batch[i].op == TreeOp::NOP) {
                         /**
                          * TODO: These are for debug only.
@@ -66,12 +71,15 @@ namespace Tree {
                 break;
             default:
                 // continue;
-                assert(false);
+                DBG_ASSERT(false);
             }
 
-            scheduler->worker_move[threadID] = false;
+            // scheduler->worker_move[threadID] = false;
             scheduler->barrier_cnt ++;
-            if (scheduler->barrier_cnt == numWorker) scheduler->bg_move = true;    
+            
+            if (scheduler->barrier_cnt == numWorker) scheduler->bg_move = true;
+            
+            pthread_barrier_wait(&scheduler->syncBarrier);
         }
         return nullptr;
     }
@@ -82,7 +90,7 @@ namespace Tree {
     inline static void search(Scheduler *scheduler, std::vector<Request> &privateQueue, FreeNode<T> *rootPtr) {
         for (Request &request : privateQueue) {
             FreeNode<T>* leafNode = lockFreeFindLeafNode(rootPtr, request.key.value());
-            assert(leafNode != nullptr);
+            DBG_ASSERT(leafNode != nullptr);
             scheduler->curr_batch[request.idx].curr_node = leafNode;
         }
     }
@@ -113,14 +121,14 @@ namespace Tree {
             // Request req = std::move(requests_in_the_same_node[i]);
             Request req = requests_in_the_same_node[i];
 
-            assert(req.key.has_value());
-            assert(req.op == TreeOp::DELETE || req.op == TreeOp::GET || req.op == TreeOp::INSERT);
-            assert(!doCheck || req.curr_node == leafNode);
+            DBG_ASSERT(req.key.has_value());
+            DBG_ASSERT(req.op == TreeOp::DELETE || req.op == TreeOp::GET || req.op == TreeOp::INSERT);
+            DBG_ASSERT(!doCheck || req.curr_node == leafNode);
 
             T key = req.key.value();
             if (leafNode == nullptr) {
                 DBG_PRINT(scheduler->debugPrint(););
-                assert(false);
+                DBG_ASSERT(false);
             }
             auto it = std::lower_bound(leafNode->keys.begin(), leafNode->keys.end(), key);
             
@@ -136,7 +144,7 @@ namespace Tree {
                 break;
             default:
                 // NOP, UPDATE should not occur in this stage!
-                assert(false);
+                DBG_ASSERT(false);
             }
         }
 
@@ -154,8 +162,8 @@ namespace Tree {
     inline static void internal_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
         if (requests_in_the_same_node.empty()) return;
         
-        assert(requests_in_the_same_node.size() == 1);
-        assert(requests_in_the_same_node[0].op == TreeOp::UPDATE);
+        DBG_ASSERT(requests_in_the_same_node.size() == 1);
+        DBG_ASSERT(requests_in_the_same_node[0].op == TreeOp::UPDATE);
 
         Request update_req = requests_in_the_same_node[0];
         FreeNode<T> *node = update_req.curr_node;
@@ -164,7 +172,7 @@ namespace Tree {
         if (node->children.size() < 2) {
             DBG_PRINT(scheduler->debugPrint());
             DBG_PRINT(node->printKeys(););
-            assert(false);
+            DBG_ASSERT(false);
         }
         /**
          * NOTE: Since we are updating node->children iteratively (due to batch operation)
@@ -189,14 +197,14 @@ namespace Tree {
                 
                 while (child->numKeys() >= scheduler->ORDER_) {
                     if (child->childIndex < node->numKeys()) {
-                        bigSplitToRight(scheduler->ORDER_, child);
+                        bigSplitToRight(scheduler->ORDER_, child, node->numChild() <= 2);
                         child_num ++;
                     }
-                    else bigSplitToLeft(scheduler->ORDER_, child, node->numChild() == 2);
+                    else bigSplitToLeft(scheduler->ORDER_, child, node->numChild() <= 2);
                     
                 }
-                assert(!node->children.empty());
-                assert(node->children.back() != nullptr);
+                DBG_ASSERT(!node->children.empty());
+                DBG_ASSERT(node->children.back() != nullptr);
                 node->consolidateChild();
 
             } else if (!isHalfFull(child, scheduler->ORDER_)) {
@@ -281,7 +289,7 @@ namespace Tree {
      * enough key to be at least half-full and do not need further modification.
      */
     static bool tryBorrow(int order, FreeNode<T> *left, FreeNode<T> *right, bool borrowFromLeft) {
-        assert(left->isLeaf == right->isLeaf);
+        DBG_ASSERT(left->isLeaf == right->isLeaf);
 
         FreeNode<T>* parent = right->parent;
         size_t index = left->childIndex;
@@ -400,13 +408,16 @@ namespace Tree {
              * TODO: We can resolve this problem by introducing a "releaseQueue" in scheduler and let background
              * thread do the release job when free.
              */
+            #ifdef DEBUG
+            if (left->prev != nullptr && needLock) {
+                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+                left->prev->next = right;
+            } else {
+                left->prev->next = right;
+            }
+            #else
             if (left->prev != nullptr) left->prev->next = right;
-            // if (left->prev != nullptr && needLock) {
-            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            //     left->prev->next = right;
-            // } else {
-            //     left->prev->next = right;
-            // }
+            #endif
             
             parent->children.erase(parent->children.begin() + left->childIndex);
 
@@ -433,13 +444,16 @@ namespace Tree {
 
             /** Fix linked list */
             left->next = right->next;
+            #ifdef DEBUG
+            if (right->next != nullptr && needLock) {
+                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+                right->next->prev = left;
+            } else {
+                right->next->prev = left;
+            }
+            #else 
             if (right->next != nullptr) right->next->prev = left;
-            // if (right->next != nullptr && needLock) {
-            //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            //     right->next->prev = left;
-            // } else {
-            //     right->next->prev = left;
-            // }
+            #endif
 
             parent->children.erase(parent->children.begin() + right->childIndex);  // todo
 
@@ -455,7 +469,7 @@ namespace Tree {
 
     // internal_execute call bigSplitInternalToLeft
     static void bigSplitToLeft(int order, FreeNode<T> *child, bool needLock) {
-        assert (child->numKeys() >= order);
+        DBG_ASSERT (child->numKeys() >= order);
 
         FreeNode<T> *new_node = new FreeNode<T>(child->isLeaf),
                    *parent = child->parent;
@@ -497,21 +511,24 @@ namespace Tree {
         new_node->prev = child->prev;
         child->prev    = new_node;
 
+        #ifdef DEBUG
+        if (needLock) {
+            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
+        } else {
+            if (new_node->prev != nullptr) new_node->prev->next = new_node;
+        }
+        #else
         if (new_node->prev != nullptr) new_node->prev->next = new_node;
-        // if (needLock) {
-        //     std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-        //     if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
-        // } else {
-        //     if (new_node->prev != nullptr) new_node->prev->next = new_node;
-        // }
+        #endif
 
-        assert(isHalfFull(new_node, order));
-        assert(isHalfFull(child, order));
+        DBG_ASSERT(isHalfFull(new_node, order));
+        DBG_ASSERT(isHalfFull(child, order));
     }
 
     // internal_execute call bigSplitInternalToRight
-    static void bigSplitToRight(int order, FreeNode<T> *child) {
-        assert (child->numKeys() >= order);
+    static void bigSplitToRight(int order, FreeNode<T> *child, bool needLock) {
+        DBG_ASSERT (child->numKeys() >= order);
 
         FreeNode<T> *new_node = new FreeNode<T>(child->isLeaf),
                    *parent = child->parent;
@@ -554,10 +571,21 @@ namespace Tree {
         new_node->prev = child;
         new_node->next = child->next;
         child->next = new_node;
-        if (new_node->next != nullptr)  new_node->next->prev = new_node;
+        // if (new_node->next != nullptr)  new_node->next->prev = new_node;
 
-        assert(isHalfFull(new_node, order));
-        assert(isHalfFull(child, order));
+        #ifdef DEBUG
+        if (needLock) {
+            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
+            if (new_node->next != nullptr)  new_node->next->prev = new_node;
+        } else {
+            if (new_node->next != nullptr)  new_node->next->prev = new_node;
+        }
+        #else
+        if (new_node->next != nullptr)  new_node->next->prev = new_node;
+        #endif
+
+        DBG_ASSERT(isHalfFull(new_node, order));
+        DBG_ASSERT(isHalfFull(child, order));
     }
 };
 }

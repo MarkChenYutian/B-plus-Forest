@@ -30,7 +30,7 @@ namespace Tree {
 
         LockDeque<T> dq = LockDeque<T>(false);
         LockNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
-        assert(dq.isLocked(node));
+        DBG_ASSERT(dq.isLocked(node));
 
         if (node == &rootPtr) {
             LockNode<T> *root = new LockNode<T>(true);
@@ -43,7 +43,7 @@ namespace Tree {
             insertKey(node, key);
 
             if (node->numKeys() >= ORDER_) {
-                assert(dq.isLocked(node->parent));
+                DBG_ASSERT(dq.isLocked(node->parent));
                 splitNode(node, key);
             }
         }
@@ -53,7 +53,7 @@ namespace Tree {
 
     template <typename T>
     LockNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(LockNode<T>* node, T key, LockDeque<T> &dq) {
-        assert(node == &rootPtr);
+        DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
         while (!node->isLeaf) {
@@ -71,7 +71,7 @@ namespace Tree {
 
     template <typename T>
     LockNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(LockNode<T>* node, T key, LockDeque<T> &dq) {
-        assert(node == &rootPtr);
+        DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
         while (!node->isLeaf) {
@@ -92,7 +92,7 @@ namespace Tree {
 
     template <typename T>
     LockNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(LockNode<T>* node, T key, LockDeque<T> &dq) {
-        assert(node == &rootPtr);
+        DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
         while (!node->isLeaf) {
@@ -116,7 +116,7 @@ namespace Tree {
 
     template <typename T>
     void FineLockBPlusTree<T>::splitNode(LockNode<T>* node, T key) {
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         LockNode<T> *new_node = new LockNode<T>(node->isLeaf);
         auto middle   = node->numKeys() / 2;
         auto mid_key  = node->keys[middle];
@@ -240,15 +240,15 @@ namespace Tree {
             /**
              * Rebuild linked list in internal node level
              */
-            assert(new_node->parent == node->parent);
+            DBG_ASSERT(new_node->parent == node->parent);
             if (newNodeOnRight) {
                 new_node->next = node->next;
                 new_node->prev = node;
                 node->next = new_node;
                 
                 /** NOTE: We want to ensure this for the correctness of fine-grain lock  */
-                assert(new_node->next != nullptr);
-                assert(new_node->parent == new_node->next->parent);
+                DBG_ASSERT(new_node->next != nullptr);
+                DBG_ASSERT(new_node->parent == new_node->next->parent);
                 new_node->next->prev = new_node;
             } else {
                 new_node->next = node;
@@ -256,8 +256,8 @@ namespace Tree {
                 node->prev = new_node;
 
                 /** NOTE: We want to ensure this for the correctness of fine-grain lock  */
-                assert(new_node->prev != nullptr);
-                assert(new_node->prev->parent = new_node->parent);
+                DBG_ASSERT(new_node->prev != nullptr);
+                DBG_ASSERT(new_node->prev->parent = new_node->parent);
                 new_node->prev->next = new_node;
             }
             
@@ -274,14 +274,14 @@ namespace Tree {
         LockDeque<T> dq = LockDeque<T>(true);
         LockNode<T> *node = findLeafNodeRead(&rootPtr, key, dq);
 
-        assert(dq.isLocked(node));
+        DBG_ASSERT(dq.isLocked(node));
 
         if (node == &rootPtr) {
             dq.releaseAllReadLocks();
             return std::nullopt;
         }
 
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
@@ -308,7 +308,7 @@ namespace Tree {
     bool FineLockBPlusTree<T>::remove(T key) {
         LockDeque<T> dq = LockDeque<T>(false);
         LockNode<T>* node = findLeafNodeDelete(&rootPtr, key, dq);
-        assert(dq.isLocked(node));
+        DBG_ASSERT(dq.isLocked(node));
         /**
          * NOTE: If the tree is empty, then node must be rootPtr
          * and since rootPtr have no key, removeFromLeaf(rootPtr, key)
@@ -319,14 +319,14 @@ namespace Tree {
             return false;
         }
         
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         size_ --;
         /** 
          * Case 1: Removing the last element of tree
          * the tree will be empty and rootPtr replaced by nullptr 
          * */
         if (node->parent == &rootPtr && node->numKeys() == 0) {
-            assert(dq.isLocked(&rootPtr));
+            DBG_ASSERT(dq.isLocked(&rootPtr));
 
             rootPtr.children.clear();
             rootPtr.isLeaf = true;
@@ -354,7 +354,7 @@ namespace Tree {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == &rootPtr) {
             if (node->numKeys() == 0) {
-                assert(dq.isLocked(&rootPtr));
+                DBG_ASSERT(dq.isLocked(&rootPtr));
                 
                 rootPtr.children[0] = node->children[0];
                 rootPtr.consolidateChild();
@@ -381,7 +381,7 @@ namespace Tree {
              * 2. If 1) failed, try to merge with left node (node -> prev)
              */
             LockNode<T> *leftNode = node->prev;
-            assert(leftNode->parent == node->parent);
+            DBG_ASSERT(leftNode->parent == node->parent);
             if (moreHalfFull(leftNode)) {
                 size_t index = leftNode->childIndex;
                 if (!node->isLeaf) {
@@ -417,14 +417,14 @@ namespace Tree {
                 removeMerge(node, dq);
             }
         } else {
-            assert(node->childIndex + 1 < node->parent->numChild());
+            DBG_ASSERT(node->childIndex + 1 < node->parent->numChild());
             /**
              * If right node exists and have same parent as current node, we 
              * 1. try to borrow from right node (node -> next)
              * 2. If 1) failed, try to merge with right node (node -> next)
              */
             LockNode<T> *rightNode = node->next;
-            assert(rightNode->parent == node->parent);
+            DBG_ASSERT(rightNode->parent == node->parent);
 
             if (moreHalfFull(rightNode)) {
                 size_t index = node->childIndex;
@@ -511,7 +511,7 @@ namespace Tree {
                 }
             }
         } else {
-            assert(node->parent->numChild() >= 3);
+            DBG_ASSERT(node->parent->numChild() >= 3);
             if (node->childIndex == 0) {
                 leftNode = node;
                 rightNode = node->next;
@@ -613,7 +613,7 @@ namespace Tree {
         if (rootPtr.numChild() > 1) return false;
 
         // checking parent child pointers
-        assert(rootPtr.children[0] != nullptr);
+        DBG_ASSERT(rootPtr.children[0] != nullptr);
         bool isValidParentPtr = rootPtr.children[0]->debug_checkParentPointers();
         if (!isValidParentPtr) return false;
 

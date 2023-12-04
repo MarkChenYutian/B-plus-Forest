@@ -45,11 +45,7 @@ int main() {
             std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
             Cases.push_back(s);
         }
-        // for (int i = 10; i < 12; i ++) {
-        //     std::string s = "../src/test/large_" + std::to_string(i) + ".case";
-        //     Cases.push_back(s);
-        // }
-        auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 6, 8);
+        auto runner = Engine::lockfreeCheckEngine<Tree::FreeBPlusTree<int>, int>(Cases, 16, 8);
         runner.Run();
     }
 

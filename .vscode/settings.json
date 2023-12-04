@@ -105,5 +105,5 @@
         "future": "cpp",
         "scoped_allocator": "cpp"
     },
-    "cmake.sourceDirectory": "E:/15-418-Final-Project/src"
+    "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src"
 }

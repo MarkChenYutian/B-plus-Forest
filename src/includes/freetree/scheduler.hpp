@@ -2,12 +2,13 @@
 #include "tree.h"
 #include "freeNode.hpp"
 #include "freetree.hpp"
+#include <barrier>
 #include <boost/lockfree/queue.hpp>
 
-constexpr int MAXWORKER          = 65;
-constexpr int BATCHSIZE          = 16;
+constexpr int MAXWORKER          = 64;
+constexpr int BATCHSIZE          = 64;
 constexpr int TERMINATE_FLAG     = 0x40000000;
-constexpr double COLLECT_TIMEOUT = 0.001;
+constexpr double COLLECT_TIMEOUT = 0.0001;
 constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
 
 
@@ -32,7 +33,6 @@ namespace Tree {
             std::atomic<int> flag = 0;
             std::atomic<int> barrier_cnt = 0;
             std::atomic<bool> bg_move = true;
-            std::atomic<bool> worker_move[MAXWORKER];
             std::atomic<bool> bg_notify_worker_terminate = false;
 
         // Helper structs
@@ -62,7 +62,7 @@ namespace Tree {
                 case TreeOp::INSERT: return "INSERT";
                 case TreeOp::UPDATE: return "UPDATE";
                 }
-                assert(false);
+                DBG_ASSERT(false);
             }
             
 
@@ -84,8 +84,8 @@ namespace Tree {
         private:
             FreeNode<T> *rootPtr;
             int ORDER_;
-            pthread_t workers[MAXWORKER];
-            WorkerArgs workers_args[MAXWORKER];
+            pthread_t workers[MAXWORKER + 1];
+            WorkerArgs workers_args[MAXWORKER + 1];
             
             /**
              * This queue handles the request from external client and will be collected into the curr_batch
@@ -114,6 +114,9 @@ namespace Tree {
             Request curr_batch[BATCHSIZE];
             // This array stores the worker-request assignment (distribution)
             std::vector<Request> request_assign[BATCHSIZE];
+
+            // This barrier synchronize the worker and background thread
+            pthread_barrier_t syncBarrier;
             
             struct PrivateWorker;
             struct PrivateBackground;
@@ -128,12 +131,11 @@ namespace Tree {
                 numWorker_(numWorker), rootPtr(rootPtr), ORDER_(order),
                 request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)), 
                 internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE)),
-                internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE * numWorker))
-            {
-                for (size_t i = 0; i < numWorker; i++) {
-                    worker_move[i] = false;
-                }
-                assert (numWorker_ + 1 < MAXWORKER);
+                internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE * numWorker * 4))
+            {                
+                pthread_barrier_init(&syncBarrier, NULL, numWorker);
+
+                assert (numWorker_ < MAXWORKER);
                 setStage(flag, PalmStage::COLLECT);
 
                 workers_args[numWorker_].scheduler = this;
@@ -159,6 +161,8 @@ namespace Tree {
                 for (size_t i = 0; i < numWorker_ + 1; i ++) {
                     pthread_join(workers[i], NULL);
                 }
+
+                pthread_barrier_destroy(&syncBarrier);
             }
 
             /**

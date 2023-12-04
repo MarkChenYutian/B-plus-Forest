@@ -272,7 +272,7 @@ private:
         T *tree;
         std::vector<TestEntry> *currCase = warg->currCase;
         int thread_id = warg->threadID;
-        assert(thread_id < warg->threadNum + 1);
+        DBG_ASSERT(thread_id < warg->threadNum + 1);
 
         bool isConcurrentThread = thread_id < warg->threadNum;
         

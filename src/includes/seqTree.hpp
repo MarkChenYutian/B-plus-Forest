@@ -44,13 +44,10 @@ namespace Tree {
 
     template <typename T>
     SeqNode<T>* SeqBPlusTree<T>::findLeafNode(SeqNode<T>* node, T key) {
-        assert(node == &rootPtr);
+        DBG_ASSERT(node == &rootPtr);
         while (!node->isLeaf) {
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
-            if (node == &rootPtr) {
-                assert(index == 0);
-            }
             node = node->children[index];
         }
         return node;
@@ -64,7 +61,7 @@ namespace Tree {
 
     template <typename T>
     void SeqBPlusTree<T>::splitNode(SeqNode<T>* node, T key) {
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         SeqNode<T> *new_node = new SeqNode<T>(node->isLeaf);
         auto middle   = node->numKeys() / 2;
         auto mid_key  = node->keys[middle];
@@ -188,7 +185,7 @@ namespace Tree {
             /**
              * Rebuild linked list in internal node level
              */
-            assert(new_node->parent == node->parent);
+            DBG_ASSERT(new_node->parent == node->parent);
             if (newNodeOnRight) {
                 // (node, A, ) -> (node, new_node, A, )
                 new_node->next = node->next;
@@ -196,8 +193,8 @@ namespace Tree {
                 node->next = new_node;
                 
                 /** NOTE: We want to ensure this for the correctness of fine-grain lock  */
-                assert(new_node->next != nullptr);
-                assert(new_node->parent == new_node->next->parent);
+                DBG_ASSERT(new_node->next != nullptr);
+                DBG_ASSERT(new_node->parent == new_node->next->parent);
                 new_node->next->prev = new_node;
             } else {
                 //  (, A, node) -> (, A, new_node, node)
@@ -206,8 +203,8 @@ namespace Tree {
                 node->prev = new_node;
 
                 /** NOTE: We want to ensure this for the correctness of fine-grain lock  */
-                assert(new_node->prev != nullptr);
-                assert(new_node->prev->parent = new_node->parent);
+                DBG_ASSERT(new_node->prev != nullptr);
+                DBG_ASSERT(new_node->prev->parent = new_node->parent);
                 new_node->prev->next = new_node;
             }
             
@@ -225,7 +222,7 @@ namespace Tree {
         if (node == &rootPtr) {
             return std::nullopt;
         }
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
@@ -257,7 +254,7 @@ namespace Tree {
             return false;
         }
         
-        assert(node != &rootPtr);
+        DBG_ASSERT(node != &rootPtr);
         size_ --;
         /** 
          * Case 1: Removing the last element of tree
@@ -311,7 +308,7 @@ namespace Tree {
              * 2. If 1) failed, try to merge with left node (node -> prev)
              */
             SeqNode<T> *leftNode = node->prev;
-            assert(leftNode->parent == node->parent);
+            DBG_ASSERT(leftNode->parent == node->parent);
             if (moreHalfFull(leftNode)) {
                 size_t index = leftNode->childIndex;
                 if (!node->isLeaf) {
@@ -347,14 +344,14 @@ namespace Tree {
                 removeMerge(node);
             }
         } else {
-            assert(node->childIndex + 1 < node->parent->numChild());
+            DBG_ASSERT(node->childIndex + 1 < node->parent->numChild());
             /**
              * If right node exists and have same parent as current node, we 
              * 1. try to borrow from right node (node -> next)
              * 2. If 1) failed, try to merge with right node (node -> next)
              */
             SeqNode<T> *rightNode = node->next;
-            assert(rightNode->parent == node->parent);
+            DBG_ASSERT(rightNode->parent == node->parent);
 
             if (moreHalfFull(rightNode)) {
                 size_t index = node->childIndex;
@@ -441,7 +438,7 @@ namespace Tree {
                 }
             }
         } else {
-            assert(node->parent->numChild() >= 3);
+            DBG_ASSERT(node->parent->numChild() >= 3);
             if (node->childIndex == 0) {
                 leftNode = node;
                 rightNode = node->next;
@@ -541,7 +538,7 @@ namespace Tree {
         if (rootPtr.numChild() > 1) return false;
 
         // checking parent child pointers
-        assert(rootPtr.children[0] != nullptr);
+        DBG_ASSERT(rootPtr.children[0] != nullptr);
         bool isValidParentPtr = rootPtr.children[0]->debug_checkParentPointers();
         if (!isValidParentPtr) return false;
 

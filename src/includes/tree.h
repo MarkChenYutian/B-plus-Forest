@@ -17,8 +17,14 @@ std::mutex print_mutex;
         std::lock_guard<std::mutex> lock(print_mutex); \
         arg; \
     } while (0);
+
+#define DBG_ASSERT(arg) assert(arg);
+
 #else
+
 #define DBG_PRINT(arg) {}
+#define DBG_ASSERT(arg) {}
+
 #endif
 
 
@@ -208,8 +214,8 @@ namespace Tree {
             }
         }
         void popAndDelete(LockNode<T> *ptr) {
-            assert(!isShared);
-            assert(isLocked(ptr->parent));
+            DBG_ASSERT(!isShared);
+            DBG_ASSERT(isLocked(ptr->parent));
             for (size_t idx = 0; idx < nodes.size(); idx ++) {
                 if (nodes[idx] == ptr) {
                     nodes.erase(nodes.begin() + idx);

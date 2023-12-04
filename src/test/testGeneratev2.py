@@ -53,6 +53,6 @@ class CaseGenerator:
 # for i in range(3):
 #     CaseGenerator(10000, 0, 10000, f"IAndG_{i}.case", [.8, 0., .19, .01]).generate()
 
-for i in range(3):
-    CaseGenerator(100000, 1000, 10000, f"mega_{i}.case", [.8, 0., .19, .01]).generate()
-
+# for i in range(3):
+#     CaseGenerator(1000000, 0, 1000000, f"mega_{i}.case", [.05, .05, .89, .01]).generate()
+CaseGenerator(100000, 1000, 5000, f"large_5.case", [.6, .29, .1, .01]).generate()
