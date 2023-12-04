@@ -128,7 +128,7 @@ namespace Tree {
                 numWorker_(numWorker), rootPtr(rootPtr), ORDER_(order),
                 request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)), 
                 internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE)),
-                internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE))
+                internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE * numWorker))
             {
                 for (size_t i = 0; i < numWorker; i++) {
                     worker_move[i] = false;

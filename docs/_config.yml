@@ -1,5 +1,5 @@
 title: 15418 Final Project
-description: Lock free B+ tree and Parallel N-body simulator with dynamic particles
+description: A comprehensive comparison of parallel and distributed B+ trees
 show_downloads: false
 theme: jekyll-theme-cayman
 baseurl: /15-418-Final-Project
