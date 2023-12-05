@@ -19,46 +19,6 @@ namespace Tree {
     }
 
     template <typename T>
-    void FineNode<T>::rebuild() {
-        auto old_children = children;
-        children = std::deque<FineNode<T>*>();
-        
-
-        auto left_most_prev = old_children[0] -> prev;
-        auto right_most_next = old_children.back() -> next;
-
-        for (FineNode<T>* child : old_children) {
-            if (child->numKeys() == 0) {
-                /** TODO: This is a leak, but adding back will cause unlock a free'd mutex */
-                // delete child;
-            }
-            else children.push_back(child);
-        }        
-
-
-        for (int i = 0; i < numChild(); i ++) {
-            if (i == 0) {
-                children[i] -> prev = left_most_prev;
-                if (left_most_prev != nullptr) left_most_prev -> next = children[i];
-            }
-            else children[i] -> prev = children[i - 1];
-
-            if (i == numChild() - 1) {
-                children[i] -> next = right_most_next;
-                if (right_most_next != nullptr) right_most_next -> prev = children[i];
-            }
-            else children[i] -> next = children[i + 1];
-        }
-
-        keys.clear();
-        for (int i = 1; i < numChild(); i++) {
-            keys.push_back(getMin(children[i]));
-        }
-
-        consolidateChild();
-    }
-
-    template <typename T>
     bool FineNode<T>::debug_checkParentPointers() {
         for (Tree::FineNode<T>* child : children) {
             if (child->parent != this) 

@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <cassert>
+#include "mpi.h"
 
 #ifdef DEBUG
 std::mutex print_mutex;
@@ -26,8 +27,6 @@ std::mutex print_mutex;
 #define DBG_ASSERT(arg) {}
 
 #endif
-
-
 
 namespace Tree {
     template <typename T>
@@ -137,16 +136,41 @@ namespace Tree {
         FineNode<T>* prev;                  // Pointer to right sibling
 
         FineNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
-        /**
-         * TODO: Maybe need to grab the unique lock on destruct?
-         */
-        // ~FineNode() {std::unique_lock lock(read_latch);}
 
-        /**
-         * Regenerate the node's keys based on current child.
-         * NOTE: SIDE_EFFECT - will delete empty children automatically!
-         */
-        void rebuild();
+        void printKeys();
+        void releaseAll();
+        void consolidateChild();
+        bool debug_checkParentPointers();
+        bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
+        bool debug_checkChildCnt(int ordering);
+
+        inline size_t numKeys()  {return keys.size();}
+        inline size_t numChild() {return children.size();}
+        inline size_t getGtKeyIdx(T key) {
+            size_t index = 0;
+            while (index < numKeys() && keys[index] <= key) index ++;
+            return index;
+        }
+    };
+
+    /**
+     * NOTE: A tree node used by the distributed version of B+ tree
+    */
+    template <typename T>
+    struct DistriNode {
+        std::shared_mutex latch;
+
+        bool isLeaf;                        // Check if node is leaf node
+        bool isDummy;                       // Check if node is dummy node
+        int childIndex;                     // Which child am I in parent? (-1 if no parent)
+        std::deque<T> keys;                 // Keys
+        std::deque<DistriNode<T>*> children;  // Children
+        DistriNode<T>* parent;                // Pointer to parent node
+        DistriNode<T>* next;                  // Pointer to left sibling
+        DistriNode<T>* prev;                  // Pointer to right sibling
+
+        DistriNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
+        
         void printKeys();
         void releaseAll();
         void consolidateChild();
@@ -319,24 +343,59 @@ namespace Tree {
     };
 
     template<typename T>
-    class DistributeBPlusTree : public ITree<T> {
+    class DistriBPlusTree {
         private:
-            FineNode<T> rootPtr;
             int ORDER_;
-            std::atomic<int> size_ = 0;
+            int RANK_;
+            int NUM_PROC_;
+            MPI_Comm WORLD_;
+            FineLockBPlusTree<T> internalTree;
         
         public:
-            DistributeBPlusTree(int order, int rank);
-            ~DistributeBPlusTree();
+            DistriBPlusTree(int order, MPI_Comm world);
+            ~DistriBPlusTree();
 
             bool debug_checkIsValid(bool verbose);
             int size();
 
             void insert(T key);
-            bool remove(T key);
+            void remove(T key);
             void print();
             std::optional<T> get(T key);
             std::vector<T> toVec();
-            FineNode<T> *getRoot();
+        
+        private:
+            /**
+             * GET, REMOVE - literally get and remove request
+             * STOP - Tell other distributed trees "I'm going to terminate"
+             * */
+            enum RequestType {GET, REMOVE, STOP, ACK};
+            struct Tree_Request {
+                int src_rank;
+                RequestType op;
+                T key;
+            };
+
+            struct Tree_Result {
+                std::optional<T> result;
+            };
+
+            struct Background_Args {
+                FineLockBPlusTree<T> *internalTree;
+                MPI_Comm world;
+                std::atomic<bool> *is_terminate;
+                MPI_Datatype TREE_REQUEST;
+                MPI_Datatype TREE_RESULT;
+                int numProc;
+                int rank;
+            };
+
+            MPI_Datatype TREE_REQUEST;
+            MPI_Datatype TREE_RESULT;
+            pthread_t bg_thread;
+            std::atomic<bool> is_terminate;
+        
+        private:
+            static void *MPI_background(void *args);
     };
-}
+};

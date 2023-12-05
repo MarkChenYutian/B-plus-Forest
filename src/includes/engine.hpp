@@ -178,7 +178,6 @@ private:
     }
 };
 
-
 template <typename T, typename K>
 class threadingEngine
 {
@@ -393,7 +392,6 @@ public:
                 bool pass = runTestCase(tree);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
                 else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
-                // destructor will check automatically
             }
         }
     }
