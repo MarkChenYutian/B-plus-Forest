@@ -6,6 +6,7 @@
 #include "tree.h"
 #include "fineTree/fineTree.hpp"
 #include "fineTree/fineNode.hpp"
+#include "distriTree.h"
 
 constexpr int RequestTAG  = 1;
 constexpr int ResultTAG   = 2;

@@ -58,7 +58,8 @@ class CaseGenerator:
 #     CaseGenerator(1000000, 0, 1000000, f"mega_{i}.case", [.05, .05, .89, .01]).generate()
 
 for i in range(0, 3):
-    CaseGenerator(100000, 0, 10000,     f"B_denseMedian_{i}.case", [.49, .49, .02, .0]).generate()
-    CaseGenerator(1000000, 0, 100000,   f"B_denseLarge_{i}.case" , [.49, .49, .02, .0]).generate()
-    CaseGenerator(10000000, 0, 1000000, f"B_megaBalance_{i}.case", [.10, .10, .80, .0]).generate()
-    CaseGenerator(10000000, 0, 1000000, f"B_megaGet_{i}.case"    , [.01, .01, .98, .0]).generate()
+    # CaseGenerator(100000, 0, 10000,     f"B_denseMedian_{i}.case", [.49, .49, .02, .0]).generate()
+    # CaseGenerator(1000000, 0, 100000,   f"B_denseLarge_{i}.case" , [.49, .49, .02, .0]).generate()
+    # CaseGenerator(10000000, 0, 1000000, f"B_megaBalance_{i}.case", [.10, .10, .80, .0]).generate()
+    # CaseGenerator(10000000, 0, 1000000, f"B_megaGet_{i}.case"    , [.01, .01, .98, .0]).generate()
+    CaseGenerator(1000000, 0, 50000000, f"B_sparseGet_{i}.case", [.10, .10, .80, .0]).generate()

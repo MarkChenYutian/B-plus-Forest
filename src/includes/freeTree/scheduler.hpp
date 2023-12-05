@@ -5,11 +5,11 @@
 #include <barrier>
 #include <boost/lockfree/queue.hpp>
 
-constexpr int MAXWORKER          = 64;
-constexpr int BATCHSIZE          = 64;
-constexpr int TERMINATE_FLAG     = 0x40000000;
-constexpr double COLLECT_TIMEOUT = 0.0001;
-constexpr size_t QUEUE_SIZE = BATCHSIZE * 2;
+constexpr static const int MAXWORKER          = 64;
+constexpr static const int BATCHSIZE          = 128;
+constexpr static const int TERMINATE_FLAG     = 0x40000000;
+constexpr static const double COLLECT_TIMEOUT = 0.00001;
+constexpr static const size_t QUEUE_SIZE = BATCHSIZE * 2;
 
 
 // Helper Functions
@@ -30,10 +30,10 @@ namespace Tree {
         // public fields
         public:
             int numWorker_;
-            std::atomic<int> flag = 0;
+            int flag = 0;
             std::atomic<int> barrier_cnt = 0;
             std::atomic<bool> bg_move = true;
-            std::atomic<bool> bg_notify_worker_terminate = false;
+            bool bg_notify_worker_terminate = false;
 
         // Helper structs
         public:
@@ -113,7 +113,8 @@ namespace Tree {
             // This array stores the leaf nodes used by each request
             Request curr_batch[BATCHSIZE];
             // This array stores the worker-request assignment (distribution)
-            std::vector<Request> request_assign[BATCHSIZE];
+            int request_assign_len[BATCHSIZE];
+            Request request_assign[BATCHSIZE][BATCHSIZE];
 
             // This barrier synchronize the worker and background thread
             pthread_barrier_t syncBarrier;
@@ -181,20 +182,24 @@ namespace Tree {
             }
 
         private:
-            static inline bool isTerminate(std::atomic<int> &flag) {
+            // static inline bool isTerminate(std::atomic<int> &flag) {
+            static inline bool isTerminate(int &flag) {
                 return flag & TERMINATE_FLAG;
             }
 
-            static inline PalmStage getStage(std::atomic<int> &flag) {
+            // static inline PalmStage getStage(std::atomic<int> &flag) {
+            static inline PalmStage getStage(int &flag) {
                 return PalmStage(flag & (~TERMINATE_FLAG));
             }
 
-            static inline void setTerminate(std::atomic<int> &flag, bool terminate) {
+            // static inline void setTerminate(std::atomic<int> &flag, bool terminate) {
+            static inline void setTerminate(int &flag, bool terminate) {
                 if (terminate) flag |= TERMINATE_FLAG;
                 else flag &= ~TERMINATE_FLAG;
             }
 
-            static inline void setStage(std::atomic<int> &flag, PalmStage stage) {
+            // static inline void setStage(std::atomic<int> &flag, PalmStage stage) {
+            static inline void setStage(int &flag, PalmStage stage) {
                 flag = (flag & (TERMINATE_FLAG)) | stage;
             }
 

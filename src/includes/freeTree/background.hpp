@@ -150,16 +150,21 @@ namespace Tree {
         }
         DBG_ASSERT(assign_node_to_thread.size() <= BATCHSIZE);
         
-        size_t idx = 0;
+        size_t widx = 0;
         // Fill the slots with Request (task) queue
-        for (auto elem : assign_node_to_thread) {
-            scheduler->request_assign[idx] = elem.second;
-            idx ++;
+        for (auto &elem : assign_node_to_thread) {
+            size_t ridx = 0;
+            for (Request &req : elem.second) {
+                scheduler->request_assign[widx][ridx] = req;
+                ridx ++;
+            }
+            scheduler->request_assign_len[widx] = ridx;
+            widx ++;
         }
         // For remaining slots, clear them up
-        while (idx < BATCHSIZE) {
-            scheduler->request_assign[idx].clear();
-            idx ++;
+        while (widx < BATCHSIZE) {
+            scheduler->request_assign_len[widx] = 0;
+            widx ++;
         }
     }
 
@@ -179,19 +184,23 @@ namespace Tree {
 
         DBG_ASSERT(assign_node_to_thread.size() <= BATCHSIZE);
 
-        size_t idx = 0;
-
-        // Fill the slots with Request (task) queue for updating.
-        for (auto elem : assign_node_to_thread) {
-            DBG_ASSERT(elem.second.size() == 1);
-            scheduler->request_assign[idx] = elem.second;
-            idx ++;
+        size_t widx = 0;
+        // Fill the slots with Request (task) queue
+        for (auto &elem : assign_node_to_thread) {
+            size_t ridx = 0;
+            for (Request &req : elem.second) {
+                scheduler->request_assign[widx][ridx] = req;
+                ridx ++;
+            }
+            scheduler->request_assign_len[widx] = ridx;
+            widx ++;
         }
         // For remaining slots, clear them up
-        while (idx < BATCHSIZE) {
-            scheduler->request_assign[idx].clear();
-            idx ++;
+        while (widx < BATCHSIZE) {
+            scheduler->request_assign_len[widx] = 0;
+            widx ++;
         }
+
 
         if (assign_node_to_thread.size() == 1) {
             Request req = scheduler->request_assign[0][0];
@@ -200,7 +209,7 @@ namespace Tree {
         return false;
     }
     
-    static void root_execute(Scheduler *scheduler, std::vector<Request> &requests_in_the_same_node) {
+    static void root_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE]) {
         Request rootUpdateRequest = requests_in_the_same_node[0];
         int order = scheduler->ORDER_;
 

@@ -23,7 +23,7 @@ public:
         };
     
     void Run() {
-        double average_qps;
+        double average_qps = 0;
         for (size_t i = 0; i < paths.size(); i ++) {
             const auto testCase = paths[i];
             loadTestCase(testCase);

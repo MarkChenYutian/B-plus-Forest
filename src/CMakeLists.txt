@@ -40,11 +40,15 @@ set(HEADERS
     # Fine Tree
     includes/fineTree/fineTree.hpp
     includes/fineTree/fineNode.hpp
+
+    # Distri Tree
+    # includes/distriTree/distriTree.h
+    # includes/distriTree/distriTree.hpp
 )
 
 # Include the 'includes' directory for header files
 include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${MPI_INCLUDE_PATH})
+# include_directories(${MPI_INCLUDE_PATH})
 include_directories(${CMAKE_SOURCE_DIR}/includes)
 
 
@@ -131,24 +135,24 @@ set_target_properties(FreeTreeRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FL
 
 
 ################# DISTRIBUTED TREE ####################
-set(DISTRI_TREE_SRC src/distriTest.cpp)
-# Enable UndefinedBehaviorSanitizer (UBSan)
-# No address sanitizer since the OpenMPI itself has memory leak, and will cause a lot of false positive.
-add_executable(distributeTreeDebug ${HEADERS} ${DISTRI_TREE_SRC})
-target_link_libraries(distributeTreeDebug ${MPI_LIBRARIES})
-target_compile_options(distributeTreeDebug PRIVATE -fsanitize=undefined -fno-omit-frame-pointer -g -DDEBUG)
-set_target_properties(distributeTreeDebug PROPERTIES 
-    COMPILE_FLAGS "-fsanitize=undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
-    LINK_FLAGS "-fsanitize=undefined ${MPI_LINK_FLAGS}"
-)
+# set(DISTRI_TREE_SRC src/distriTest.cpp)
+# # Enable UndefinedBehaviorSanitizer (UBSan)
+# # No address sanitizer since the OpenMPI itself has memory leak, and will cause a lot of false positive.
+# add_executable(distributeTreeDebug ${HEADERS} ${DISTRI_TREE_SRC})
+# target_link_libraries(distributeTreeDebug ${MPI_LIBRARIES})
+# target_compile_options(distributeTreeDebug PRIVATE -fsanitize=undefined -fno-omit-frame-pointer -g -DDEBUG)
+# set_target_properties(distributeTreeDebug PROPERTIES 
+#     COMPILE_FLAGS "-fsanitize=undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
+#     LINK_FLAGS "-fsanitize=undefined ${MPI_LINK_FLAGS}"
+# )
 
 ################ BENCHMARKING #########################
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 
 set(BENCHMARK_SRC src/benchmark.cpp)
 add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
-target_compile_options(benchmarkOptimized PRIVATE -pg)
+target_compile_options(benchmarkOptimized PRIVATE -O2)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")

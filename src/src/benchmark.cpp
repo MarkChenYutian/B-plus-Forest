@@ -7,7 +7,7 @@
 #include "fineTree/fineTree.hpp"
 #include "freeTree/freeNode.hpp"
 #include "freeTree/freeTree.hpp"
-#include "distriTree/distriTree.hpp"
+// #include "distriTree/distriTree.hpp"
 
 enum TreeType {Sequential, CoarseGrain, FineGrain, LockFree, Distributed};
 
@@ -42,27 +42,27 @@ void MetaEngine(TreeType type, std::string const &name, std::vector<std::string>
 
 int main() {
     std::vector<std::string> Cases = {};
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/small_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
-    for (int i = 0; i < 1; i ++) {
-        std::string s = "../src/test/B_denseMedian_" + std::to_string(i) + ".case";
+    for (int i = 0; i < 3; i ++) {
+        std::string s = "../src/test/B_sparseGet_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
+    // for (int i = 0; i < 3; i ++) {
+    //     std::string s = "../src/test/B_denseMedian_" + std::to_string(i) + ".case";
+    //     Cases.push_back(s);
+    // }
     // for (int i = 0; i < 3; i ++) {
     //     std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
     //     Cases.push_back(s);
     // }
 
-    EngineConfig sequentialCfg = EngineConfig(7, 1, 1);
-    EngineConfig parallelCfg2  = EngineConfig(7, 4, 3);
+    EngineConfig sequentialCfg = EngineConfig(7, 1, 3);
+    EngineConfig parallelCfg2  = EngineConfig(7, 2, 3);
     EngineConfig parallelCfg4  = EngineConfig(7, 4, 3);
 
-    // MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
-    // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelCfg2);
+    MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelCfg2);
     // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelCfg4);
-    // MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelCfg2);
+    MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelCfg2);
     // MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelCfg4);
     MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
     
