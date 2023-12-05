@@ -17,7 +17,6 @@ namespace Tree {
 template <typename T>
 DistriBPlusTree<T>::DistriBPlusTree(int order, MPI_Comm world): 
 ORDER_(order), WORLD_(world), internalTree(FineLockBPlusTree<T>(order)) {
-    // pthread_barrier_init(&barrier_mpi, NULL, 2); // TODO
     MPI_Comm_rank(WORLD_, &RANK_);
     MPI_Comm_size(WORLD_, &NUM_PROC_);
 
@@ -27,52 +26,42 @@ ORDER_(order), WORLD_(world), internalTree(FineLockBPlusTree<T>(order)) {
     MPI_Type_commit(&TREE_REQUEST);
     MPI_Type_commit(&TREE_RESULT);
     
-    Background_Args bg_args;
-    bg_args.internalTree = &internalTree;
-    bg_args.world        = WORLD_;
-    bg_args.TREE_REQUEST = TREE_REQUEST;
-    bg_args.TREE_RESULT  = TREE_RESULT;
-    bg_args.numProc      = NUM_PROC_;
-    DBG_PRINT(std::cout << "CONSTRUCTOR numProc: " << NUM_PROC_ << std::endl;);
-    DBG_PRINT(std::cout << "CONSTRUCTOR bg_args.numProc: " << bg_args.numProc << std::endl;);
-    bg_args.rank         = RANK_;
+    bg_args = new Background_Args();
+    bg_args->internalTree = &internalTree;
+    bg_args->world        = WORLD_;
+    bg_args->TREE_REQUEST = TREE_REQUEST;
+    bg_args->TREE_RESULT  = TREE_RESULT;
+    bg_args->numProc      = NUM_PROC_;
+    bg_args->rank         = RANK_;
 
-    pthread_create(&bg_thread, NULL, MPI_background, &bg_args);
-    DBG_PRINT(
-        std::cout << "Distributed Tree RANK: " << RANK_ << std::endl;
-    )
-    
+    pthread_create(&bg_thread, NULL, MPI_background, bg_args);
+    DBG_PRINT(std::cout << "CONSTRUCTOR numProc: " << NUM_PROC_ << std::endl;);
+    DBG_PRINT(std::cout << "CONSTRUCTOR RANK: " << RANK_ << std::endl;)
 }
 
 template <typename T>
 void *DistriBPlusTree<T>::MPI_background(void *args) {
-    DBG_PRINT(std::cout << "Background Thread Start" << std::endl;);
-    
-    Background_Args *bg_args = static_cast<Background_Args*>(args);
+    Background_Args *bg_args_recv = static_cast<Background_Args*>(args);
 
-    int nProc = bg_args->numProc;
-    int rank  = bg_args->rank;
-    MPI_Comm world = bg_args->world;
-    MPI_Datatype _TREE_REQUEST = bg_args->TREE_REQUEST;
-    MPI_Datatype _TREE_RESULT  = bg_args->TREE_RESULT;
-    FineLockBPlusTree<T>* internalTree = bg_args->internalTree;
+    int nProc = bg_args_recv->numProc;
+    int rank  = bg_args_recv->rank;
+    MPI_Comm world = bg_args_recv->world;
+    MPI_Datatype _TREE_REQUEST = (bg_args_recv->TREE_REQUEST);
+    MPI_Datatype _TREE_RESULT  = (bg_args_recv->TREE_RESULT);
+    FineLockBPlusTree<T>* internalTree = bg_args_recv->internalTree;
+    DBG_PRINT(std::cout << "BG Thread Start with rank: " << rank << std::endl;);
     
     // Count number of process sending "STOP" Request. Terminate this if and only if 
     // all processes STOPs.
     int terminateCounter = 0;
-    DBG_PRINT(std::cout << "Background Thread INIT done" << std::endl;);
     while (true) {
-        // DBG_PRINT(std::cout << terminateCounter << " " << nProc << std::endl;)
         if (terminateCounter == nProc) break;
-        // DBG_PRINT(std::cout << "hello\n";);
         Tree_Request request = {-1, RequestType::STOP, -1000};
         Tree_Result  result;
         MPI_Request  isend_handle;
 
         // Receive a request from others
         MPI_Recv(&request, 1, _TREE_REQUEST, MPI_ANY_SOURCE, RequestTAG, world, MPI_STATUS_IGNORE);
-        // MPI_Recv(&request, 1, _TREE_REQUEST, 0, RequestTAG, world, MPI_STATUS_IGNORE);
-        DBG_PRINT(std::cout << "BG recv smth\n";);
         switch(request.op) {
             case RequestType::GET:
                 assert(false);
@@ -84,7 +73,6 @@ void *DistriBPlusTree<T>::MPI_background(void *args) {
                 internalTree->remove(request.key);
                 break;
             case RequestType::STOP:
-                DBG_PRINT(std::cout << "Receive STOP" << std::endl;);
                 terminateCounter ++;
                 /**
                  * After receiving a stop, acknowledge the sender.
@@ -92,51 +80,42 @@ void *DistriBPlusTree<T>::MPI_background(void *args) {
                 Tree_Request ack_request;
                 ack_request.op = RequestType::ACK;
                 ack_request.src_rank = rank;
-                // MPI_Isend(&ack_request, 1, _TREE_REQUEST, request.src_rank, AckTAG, world, &isend_handle);
-                MPI_Send(&ack_request, 1, _TREE_REQUEST, request.src_rank, AckTAG, world);
-                DBG_PRINT(std::cout << "Send ACK" << std::endl;);
+                MPI_Isend(&ack_request, 1, _TREE_REQUEST, request.src_rank, AckTAG, world, &isend_handle);
+                // MPI_Send(&ack_request, 1, _TREE_REQUEST, request.src_rank, AckTAG, world);
                 break;
             default:
                 assert(false);
         }
     }
-    DBG_PRINT(std::cout << "bg_thread about to return\n";);
     return nullptr;
 }
 
 template <typename T>
 DistriBPlusTree<T>::~DistriBPlusTree() {
-    DBG_PRINT(std::cout << "in DESTRUCTOR rank: " << RANK_ << std::endl;);
     // Tell other MPI processes "I'm going to stop"
     Tree_Request stop_request;
     stop_request.op = RequestType::STOP;
     stop_request.src_rank = RANK_;
 
     for (size_t idx = 0; idx < NUM_PROC_; idx++) {
-        DBG_PRINT(std::cout << "idx: " << idx << " | NUM_PROC: " << NUM_PROC_ << std::endl);
         MPI_Request  isend_handle;
         MPI_Isend(&stop_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &isend_handle);
     }
-    DBG_PRINT(std::cout << "outta 1st for loop, trying to recv ACK\n");
     // foreground should rec numProc ACK from others
-    // for (size_t idx = 0; idx < NUM_PROC_; idx ++) {
-    //     Tree_Request ack_request;
-    //     MPI_Recv(&ack_request, 1, TREE_REQUEST, AckTAG, 0, WORLD_, MPI_STATUS_IGNORE);
-    // }
-    Tree_Request ack_request;
-    MPI_Recv(&ack_request, 1, TREE_REQUEST, MPI_ANY_SOURCE, AckTAG, WORLD_, MPI_STATUS_IGNORE);
-    DBG_PRINT(std::cout << "outta 2nd loop, recv all ACK\n");
+    for (size_t idx = 0; idx < NUM_PROC_; idx ++) {
+        Tree_Request ack_request;
+        MPI_Recv(&ack_request, 1, TREE_REQUEST, idx, AckTAG, WORLD_, MPI_STATUS_IGNORE);
+    }
+
     /**
-     * After getting all N-1 ACK from other processes, we can now tell bg to terminate
-     * when appropriate.
+     * After getting all N ACK from other processes, bg will terminate.
      * */
-    // pthread_barrier_wait(&barrier_mpi);
     if (pthread_join(bg_thread, NULL) != 0) {
         std::cerr << "Error joining bg_thread at rank " << RANK_ << std::endl;
         exit(1);
     }
-    // pthread_barrier_destroy(&barrier_mpi);
-    DBG_PRINT(std::cout << "destroyed\n");
+    
+    delete bg_args;
 }
 
 /**
@@ -162,14 +141,11 @@ void DistriBPlusTree<T>::remove(T key) {
         MPI_Isend(&remove_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_);
     }
     /** 
-    * Remove does not get other process's response, because it trusts others to do their jobs correctly.
-    * */
+     * Remove does not get other process's response, because it trusts others to do their jobs correctly.
+     * */
     internalTree.remove(key);
 }
 
-/**
- * 
- * */
 template <typename T>
 std::optional<T> DistriBPlusTree<T>::get(T key) {
     assert(false);

@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
     std::cout << "requested MPI level: " << MPI_THREAD_SERIALIZED << ", get MPI level: " << mpi_thread_support << std::endl;
     {
         auto T = Tree::DistriBPlusTree<int>(5, MPI_COMM_WORLD);
-        sleep(3);
+        // sleep(3);
     }
     MPI_Finalize();
     DBG_PRINT(std::cout << "EXIT" << std::endl;);
