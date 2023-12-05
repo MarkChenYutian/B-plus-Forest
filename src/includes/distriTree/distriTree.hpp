@@ -91,6 +91,7 @@ template <typename T>
 DistriBPlusTree<T>::~DistriBPlusTree() {
     // Tell other MPI processes "I'm going to stop"
     Tree_Request stop_request;
+    DBG_PRINT(std::cout << "Subtree rank "<< RANK_ << " scheduled to stop." << std::endl;);
     stop_request.op = RequestType::STOP;
     stop_request.src_rank = RANK_;
 

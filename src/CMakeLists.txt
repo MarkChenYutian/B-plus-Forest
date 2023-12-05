@@ -20,6 +20,7 @@ set(HEADERS
 
     # Project file
     includes/tree.h
+    includes/benchmark.hpp
     includes/engine.hpp
 
     # Free Tree
@@ -49,9 +50,9 @@ include_directories(${CMAKE_SOURCE_DIR}/includes)
 
 
 ################# Sequential Tree ####################
-set(UNIT_TEST_SRC src/seqUnitTest.cpp)
+set(SEQ_TEST_SRC src/seqTest.cpp)
 # Unit test build
-add_executable(seqTestDebug ${HEADERS} ${UNIT_TEST_SRC})
+add_executable(seqTestDebug ${HEADERS} ${SEQ_TEST_SRC})
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
 target_compile_options(seqTestDebug PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(seqTestDebug ${MPI_LIBRARIES})
@@ -59,6 +60,11 @@ set_target_properties(seqTestDebug PROPERTIES
     COMPILE_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
     LINK_FLAGS "-fsanitize=address,undefined ${MPI_LINK_FLAGS}"
 )
+
+add_executable(seqTestRelease ${HEADERS} ${SEQ_TEST_SRC})
+target_compile_options(seqTestRelease PRIVATE -O3)
+target_link_libraries(seqTestRelease ${MPI_LIBRARIES})
+set_target_properties(seqTestRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 
 
@@ -135,3 +141,14 @@ set_target_properties(distributeTreeDebug PROPERTIES
     COMPILE_FLAGS "-fsanitize=undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
     LINK_FLAGS "-fsanitize=undefined ${MPI_LINK_FLAGS}"
 )
+
+################ BENCHMARKING #########################
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+
+set(BENCHMARK_SRC src/benchmark.cpp)
+add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
+target_compile_options(benchmarkOptimized PRIVATE -pg)
+target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
+target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")

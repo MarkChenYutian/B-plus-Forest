@@ -103,7 +103,11 @@
         "csignal": "cpp",
         "codecvt": "cpp",
         "future": "cpp",
-        "scoped_allocator": "cpp"
+        "scoped_allocator": "cpp",
+        "target": "cpp",
+        "__tree": "cpp",
+        "queue": "cpp"
     },
-    "cmake.sourceDirectory": "Y:/private/15418/15-418-Final-Project/src"
+    "cmake.sourceDirectory": "/mnt/e/15-418-Final-Project/src",
+    "C_Cpp.errorSquiggles": "enabled",
 }

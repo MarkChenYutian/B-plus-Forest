@@ -1,5 +1,6 @@
 #include <vector>
 #include "engine.hpp"
+#include "seqTree/seqNode.hpp"
 #include "seqTree/seqTree.hpp"
 
 int main() {
@@ -20,6 +21,7 @@ int main() {
 
     {
         auto runner = Engine::seqEngine<Tree::SeqBPlusTree<int>, int>(Cases, 16, 1);
+        runner.Run();
     }
 
     
