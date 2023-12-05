@@ -381,12 +381,17 @@ namespace Tree {
             };
 
             struct Background_Args {
+                /**
+                 * CAUTIOUS: Changing the ordering of this struct will change the 
+                 * behavior of OpenMPI on pthread_create. Seems like MPI_Comm or
+                 * FineLockBPlusTree<T> will destruct the fields after it!!!
+                 */
+                int numProc;
+                int rank;
                 FineLockBPlusTree<T> *internalTree;
                 MPI_Comm world;
                 MPI_Datatype TREE_REQUEST;
                 MPI_Datatype TREE_RESULT;
-                int numProc;
-                int rank;
             };
 
             MPI_Datatype TREE_REQUEST;

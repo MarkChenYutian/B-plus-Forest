@@ -1,9 +1,9 @@
 #pragma once
 #include "../tree.h"
 #include "timing.h"
-#include "freetree/scheduler.hpp"
-#include "freetree/background.hpp"
-#include "freetree/worker.hpp"
+#include "freeTree/scheduler.hpp"
+#include "freeTree/background.hpp"
+#include "freeTree/worker.hpp"
 
 
 /**

@@ -1,7 +1,7 @@
 #pragma once
-#include "../tree.h"
+#include "tree.h"
 #include "freeNode.hpp"
-#include "freetree.hpp"
+#include "freeTree.hpp"
 #include <barrier>
 #include <boost/lockfree/queue.hpp>
 
