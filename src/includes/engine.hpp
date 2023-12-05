@@ -103,6 +103,7 @@ public:
                         bool pass = runTestCase(tree);
                         if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
                         else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
+                        assert(pass);
                     }
                 }
                 _exit(0);
@@ -244,6 +245,7 @@ public:
                 bool pass = concurrent_tree.debug_checkIsValid(false);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << i << " " << testCase << "\033[0m" << std::endl;
                 else std::cout << "\r\033[1;31mFAIL Case " << i << " " << testCase << "\033[0m" << std::endl;
+                assert(pass);
             }
         }
     }
@@ -392,6 +394,7 @@ public:
                 bool pass = runTestCase(tree);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
                 else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
+                assert(pass);
             }
         }
     }

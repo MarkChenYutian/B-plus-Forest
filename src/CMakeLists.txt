@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.10)
 # Project name
 project(BForest)
 
+include(CTest)
+
 # Specify the C++ standard (e.g., C++17)
 set(CMAKE_CXX_STANDARD 17)
 set(ENV{TSAN_OPTIONS} "second_deadlock_stack=1")
@@ -156,3 +158,114 @@ target_compile_options(benchmarkOptimized PRIVATE -O2)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
+
+
+################ Automated Testing #####################
+set(BENCHMARK_SRC src/ctestRunner.cpp)
+add_executable(AutoTest ${HEADERS} ${BENCHMARK_SRC})
+target_compile_options(benchmarkOptimized PRIVATE -O1 -DDEBUG)
+
+# Sequential Tree
+add_test(NAME SeqTreeSmall0_ord3 COMMAND ./AutoTest 3 1 Seq small_0.case)
+set_tests_properties(SeqTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeSmall0_ord4 COMMAND ./AutoTest 4 1 Seq small_0.case)
+set_tests_properties(SeqTreeSmall0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeSmall0_ord5 COMMAND ./AutoTest 5 1 Seq small_0.case)
+set_tests_properties(SeqTreeSmall0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeSmall0_ord6 COMMAND ./AutoTest 6 1 Seq small_0.case)
+set_tests_properties(SeqTreeSmall0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeLarge0_ord3 COMMAND ./AutoTest 3 1 Seq large_0.case)
+set_tests_properties(SeqTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeLarge0_ord4 COMMAND ./AutoTest 4 1 Seq large_0.case)
+set_tests_properties(SeqTreeLarge0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeLarge0_ord5 COMMAND ./AutoTest 5 1 Seq large_0.case)
+set_tests_properties(SeqTreeLarge0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+add_test(NAME SeqTreeLarge0_ord6 COMMAND ./AutoTest 6 1 Seq large_0.case)
+set_tests_properties(SeqTreeLarge0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "Sequential")
+
+
+
+# CoarseLock Tree
+add_test(NAME CoarseTreeSmall0_ord3 COMMAND ./AutoTest 3 4 Coarse small_0.case)
+set_tests_properties(CoarseTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeSmall0_ord4 COMMAND ./AutoTest 4 4 Coarse small_0.case)
+set_tests_properties(CoarseTreeSmall0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeSmall0_ord5 COMMAND ./AutoTest 5 4 Coarse small_0.case)
+set_tests_properties(CoarseTreeSmall0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeSmall0_ord6 COMMAND ./AutoTest 6 4 Coarse small_0.case)
+set_tests_properties(CoarseTreeSmall0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeLarge0_ord3 COMMAND ./AutoTest 3 4 Coarse large_0.case)
+set_tests_properties(CoarseTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeLarge0_ord4 COMMAND ./AutoTest 4 4 Coarse large_0.case)
+set_tests_properties(CoarseTreeLarge0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeLarge0_ord5 COMMAND ./AutoTest 5 4 Coarse large_0.case)
+set_tests_properties(CoarseTreeLarge0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+add_test(NAME CoarseTreeLarge0_ord6 COMMAND ./AutoTest 6 4 Coarse large_0.case)
+set_tests_properties(CoarseTreeLarge0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "CoarseLock")
+
+
+
+# FineLock Tree
+add_test(NAME FineTreeSmall0_ord3 COMMAND ./AutoTest 3 4 Fine small_0.case)
+set_tests_properties(FineTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeSmall0_ord4 COMMAND ./AutoTest 4 4 Fine small_0.case)
+set_tests_properties(FineTreeSmall0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeSmall0_ord5 COMMAND ./AutoTest 5 4 Fine small_0.case)
+set_tests_properties(FineTreeSmall0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeSmall0_ord6 COMMAND ./AutoTest 6 4 Fine small_0.case)
+set_tests_properties(FineTreeSmall0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeLarge0_ord3 COMMAND ./AutoTest 3 4 Fine large_0.case)
+set_tests_properties(FineTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeLarge0_ord4 COMMAND ./AutoTest 4 4 Fine large_0.case)
+set_tests_properties(FineTreeLarge0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeLarge0_ord5 COMMAND ./AutoTest 5 4 Fine large_0.case)
+set_tests_properties(FineTreeLarge0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+add_test(NAME FineTreeLarge0_ord6 COMMAND ./AutoTest 6 4 Fine large_0.case)
+set_tests_properties(FineTreeLarge0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "FineLock")
+
+
+# FreeLock Tree
+add_test(NAME FreeTreeSmall0_ord3 COMMAND ./AutoTest 3 1 Free small_0.case)
+set_tests_properties(FreeTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeSmall0_ord4 COMMAND ./AutoTest 4 1 Free small_0.case)
+set_tests_properties(FreeTreeSmall0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeSmall0_ord5 COMMAND ./AutoTest 5 1 Free small_0.case)
+set_tests_properties(FreeTreeSmall0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeSmall0_ord6 COMMAND ./AutoTest 6 1 Free small_0.case)
+set_tests_properties(FreeTreeSmall0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeLarge0_ord3 COMMAND ./AutoTest 3 1 Free large_0.case)
+set_tests_properties(FreeTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeLarge0_ord4 COMMAND ./AutoTest 4 1 Free large_0.case)
+set_tests_properties(FreeTreeLarge0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeLarge0_ord5 COMMAND ./AutoTest 5 1 Free large_0.case)
+set_tests_properties(FreeTreeLarge0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+
+add_test(NAME FreeTreeLarge0_ord6 COMMAND ./AutoTest 6 1 Free large_0.case)
+set_tests_properties(FreeTreeLarge0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")

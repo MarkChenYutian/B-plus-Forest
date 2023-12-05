@@ -17,7 +17,6 @@ test/
 *.fdb_latexmk
 *.fls
 *.log
-*.pdf
 *.out
 *.synctex.gz
 _minted-report/*
