@@ -35,8 +35,6 @@ ORDER_(order), WORLD_(world), internalTree(FineLockBPlusTree<T>(order)) {
     bg_args->rank         = RANK_;
 
     pthread_create(&bg_thread, NULL, MPI_background, bg_args);
-    DBG_PRINT(std::cout << "CONSTRUCTOR numProc: " << NUM_PROC_ << std::endl;);
-    DBG_PRINT(std::cout << "CONSTRUCTOR RANK: " << RANK_ << std::endl;)
 }
 
 template <typename T>
@@ -54,22 +52,21 @@ void *DistriBPlusTree<T>::MPI_background(void *args) {
     // Count number of process sending "STOP" Request. Terminate this if and only if 
     // all processes STOPs.
     int terminateCounter = 0;
+    MPI_Request  isend_handle;
+    
     while (true) {
         if (terminateCounter == nProc) break;
-        Tree_Request request = {-1, RequestType::STOP, -1000};
+        Tree_Request request;
         Tree_Result  result;
-        MPI_Request  isend_handle;
 
         // Receive a request from others
         MPI_Recv(&request, 1, _TREE_REQUEST, MPI_ANY_SOURCE, RequestTAG, world, MPI_STATUS_IGNORE);
         switch(request.op) {
             case RequestType::GET:
-                assert(false);
                 result.result = internalTree->get(request.key);
                 MPI_Isend(&result, 1, _TREE_RESULT, request.src_rank, ResultTAG, world, &isend_handle);
                 break;
             case RequestType::REMOVE:
-                assert(false);
                 internalTree->remove(request.key);
                 break;
             case RequestType::STOP:
@@ -98,8 +95,7 @@ DistriBPlusTree<T>::~DistriBPlusTree() {
     stop_request.src_rank = RANK_;
 
     for (size_t idx = 0; idx < NUM_PROC_; idx++) {
-        MPI_Request  isend_handle;
-        MPI_Isend(&stop_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &isend_handle);
+        MPI_Isend(&stop_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &garbage_request);
     }
     // foreground should rec numProc ACK from others
     for (size_t idx = 0; idx < NUM_PROC_; idx ++) {
@@ -124,13 +120,11 @@ DistriBPlusTree<T>::~DistriBPlusTree() {
  * */
 template <typename T>
 void DistriBPlusTree<T>::insert(T key) {
-    assert(false);
     internalTree.insert(key);
 }
 
 template <typename T>
 void DistriBPlusTree<T>::remove(T key) {
-    assert(false);
     // Send request to other process: Blocking!
     Tree_Request remove_request;
     remove_request.op = RequestType::REMOVE;
@@ -138,7 +132,7 @@ void DistriBPlusTree<T>::remove(T key) {
     remove_request.key = key;
     for (size_t idx = 0; idx < NUM_PROC_; idx++) {
         if (idx == RANK_) continue;
-        MPI_Isend(&remove_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_);
+        MPI_Isend(&remove_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &garbage_request);
     }
     /** 
      * Remove does not get other process's response, because it trusts others to do their jobs correctly.
@@ -148,9 +142,7 @@ void DistriBPlusTree<T>::remove(T key) {
 
 template <typename T>
 std::optional<T> DistriBPlusTree<T>::get(T key) {
-    assert(false);
     // Send request to other process: Blocking!
-    MPI_Request mpi_handle;
     Tree_Request get_request;
     get_request.op = RequestType::GET;
     get_request.src_rank = RANK_;
@@ -158,7 +150,7 @@ std::optional<T> DistriBPlusTree<T>::get(T key) {
     
     for (size_t idx = 0; idx < NUM_PROC_; idx++) {
         if (idx == RANK_) continue;
-        MPI_Isend(&get_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &mpi_handle);
+        MPI_Isend(&get_request, 1, TREE_REQUEST, idx, RequestTAG, WORLD_, &garbage_request);
     }
 
     std::optional<T> local_result = internalTree.get(key);

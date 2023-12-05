@@ -391,6 +391,7 @@ namespace Tree {
 
             MPI_Datatype TREE_REQUEST;
             MPI_Datatype TREE_RESULT;
+            MPI_Request garbage_request;
             Background_Args *bg_args;
             pthread_t bg_thread;
         
