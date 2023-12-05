@@ -383,7 +383,6 @@ namespace Tree {
             struct Background_Args {
                 FineLockBPlusTree<T> *internalTree;
                 MPI_Comm world;
-                std::atomic<bool> *is_terminate;
                 MPI_Datatype TREE_REQUEST;
                 MPI_Datatype TREE_RESULT;
                 int numProc;
@@ -393,7 +392,6 @@ namespace Tree {
             MPI_Datatype TREE_REQUEST;
             MPI_Datatype TREE_RESULT;
             pthread_t bg_thread;
-            std::atomic<bool> is_terminate;
         
         private:
             static void *MPI_background(void *args);
