@@ -1,5 +1,4 @@
 #include "engine.hpp"
-
 #include "seqTree/seqNode.hpp"
 #include "seqTree/seqTree.hpp"
 #include "coarseTree/coarseTree.hpp"
@@ -10,32 +9,23 @@
 
 enum TreeType {Sequential, CoarseGrain, FineGrain, LockFree, Distributed};
 
-struct EngineConfig {
-    int order;
-    int numThread;
-    int numRun;
-    EngineConfig(int order, int numThread, int numRun): order(order), numThread(numThread), numRun(numRun) {};
-};
-
-void MetaEngine(TreeType type, std::string const &name, std::vector<std::string> cases, EngineConfig const &cfg) {
+void MetaEngine(TreeType type, std::string const &name, std::vector<std::string> cases, Engine::EngineConfig const &cfg) {
     std::cout << "TESTCASE: " << name << std::endl;
     if (type == TreeType::Sequential) {
-        auto runner = Engine::seqEngine<Tree::SeqBPlusTree<int>, int>(cases, cfg.order, cfg.numThread);
+        auto runner = Engine::SeqEngine<Tree::SeqBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::CoarseGrain) {
-        auto runner = Engine::threadingEngine<Tree::CoarseLockBPlusTree<int>, int>(cases, cfg.order, cfg.numThread);
+        auto runner = Engine::ThreadEngine<Tree::CoarseLockBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::FineGrain) {
-        auto runner = Engine::threadingEngine<Tree::FineLockBPlusTree<int>, int>(cases, cfg.order, cfg.numThread);
+        auto runner = Engine::ThreadEngine<Tree::FineLockBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::LockFree) {
-        auto runner = Engine::lockfreeEngine<Tree::FreeBPlusTree<int>, int>(cases, cfg.order, cfg.numThread);
+        auto runner = Engine::BenchmarkEngine<Tree::FreeBPlusTree>(cfg);
         runner.Run();
     } else {
         assert(false);
         // Does not support DistriBPlusTree yet!
-        // auto runner = Engine::benchmarkEngine<Tree::DistriBPlusTree<int>, int>(cases, cfg.order, cfg.numThread, cfg.numRun);
-        // runner.Run();
     }
 }
 
@@ -57,20 +47,7 @@ int main(int argc, char **argv) {
     else assert(false);
 
     std::vector<std::string> Cases = {baseDir + caseName};
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/B_sparseGet_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/B_denseMedian_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
-
-    EngineConfig config = EngineConfig(order, numThread, 1);
-    MetaEngine(type, "AutoTesting...", Cases, config);
+    Engine::EngineConfig config {order, numThread, Cases};
+    MetaEngine(type, "", Cases, config);
     return 0;
 }

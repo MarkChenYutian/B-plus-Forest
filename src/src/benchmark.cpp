@@ -1,4 +1,4 @@
-#include "benchmark.hpp"
+#include "engine.hpp"
 
 #include "seqTree/seqNode.hpp"
 #include "seqTree/seqTree.hpp"
@@ -7,30 +7,22 @@
 #include "fineTree/fineTree.hpp"
 #include "freeTree/freeNode.hpp"
 #include "freeTree/freeTree.hpp"
-// #include "distriTree/distriTree.hpp"
 
 enum TreeType {Sequential, CoarseGrain, FineGrain, LockFree, Distributed};
 
-struct EngineConfig {
-    int order;
-    int numThread;
-    int numRun;
-    EngineConfig(int order, int numThread, int numRun): order(order), numThread(numThread), numRun(numRun) {};
-};
-
-void MetaEngine(TreeType type, std::string const &name, std::vector<std::string> cases, EngineConfig const &cfg) {
+void MetaEngine(TreeType type, std::string const &name, std::vector<std::string> cases, Engine::EngineConfig const &cfg) {
     std::cout << "TESTCASE: " << name << std::endl;
     if (type == TreeType::Sequential) {
-        auto runner = Engine::benchmarkEngine<Tree::SeqBPlusTree<int>, int>(cases, cfg.order, cfg.numThread, cfg.numRun);
+        auto runner = Engine::BenchmarkEngine<Tree::SeqBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::CoarseGrain) {
-        auto runner = Engine::benchmarkEngine<Tree::CoarseLockBPlusTree<int>, int>(cases, cfg.order, cfg.numThread, cfg.numRun);
+        auto runner = Engine::BenchmarkEngine<Tree::CoarseLockBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::FineGrain) {
-        auto runner = Engine::benchmarkEngine<Tree::FineLockBPlusTree<int>, int>(cases, cfg.order, cfg.numThread, cfg.numRun);
+        auto runner = Engine::BenchmarkEngine<Tree::FineLockBPlusTree>(cfg);
         runner.Run();
     } else if (type == TreeType::LockFree) {
-        auto runner = Engine::benchmarkEngine<Tree::FreeBPlusTree<int>, int>(cases, cfg.order, cfg.numThread, cfg.numRun);
+        auto runner = Engine::BenchmarkEngine<Tree::FreeBPlusTree>(cfg);
         runner.Run();
     } else {
         assert(false);
@@ -43,27 +35,19 @@ void MetaEngine(TreeType type, std::string const &name, std::vector<std::string>
 int main() {
     std::vector<std::string> Cases = {};
     for (int i = 0; i < 3; i ++) {
-        std::string s = "../src/test/B_sparseGet_" + std::to_string(i) + ".case";
+        std::string s = "../src/test/large_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/B_denseMedian_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
-    // for (int i = 0; i < 3; i ++) {
-    //     std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
-    //     Cases.push_back(s);
-    // }
 
-    EngineConfig sequentialCfg = EngineConfig(7, 1, 3);
-    EngineConfig parallelCfg2  = EngineConfig(7, 2, 3);
-    EngineConfig parallelCfg4  = EngineConfig(7, 4, 3);
+    Engine::EngineConfig sequentialCfg {7, 1, Cases};
+    Engine::EngineConfig parallelx2Cfg {7, 2, Cases};
+    Engine::EngineConfig parallelx4Cfg {7, 4, Cases};
 
     MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
-    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelCfg2);
-    // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelCfg4);
-    MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelCfg2);
-    // MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelCfg4);
+    // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
+    // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
+    // MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
+    // MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);
     MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
     
     return 0;

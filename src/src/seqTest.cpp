@@ -20,12 +20,10 @@ int main() {
     }
 
     {
-        auto runner = Engine::seqEngine<Tree::SeqBPlusTree<int>, int>(Cases, 16, 1);
+        Engine::EngineConfig cfg {5, 1, Cases};
+        auto runner = Engine::SeqEngine<Tree::SeqBPlusTree>(cfg);
         runner.Run();
     }
-
-    
-
 
     return 0;
 }

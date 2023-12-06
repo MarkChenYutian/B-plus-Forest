@@ -17,13 +17,9 @@ int main() {
         std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
-
     {
-        auto runner = Engine::seqEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 1);
-    }
-
-    {
-        auto runner = Engine::threadingEngine<Tree::FineLockBPlusTree<int>, int>(Cases, 11, 8);
+        Engine::EngineConfig cfg {5, 1, Cases};
+        auto runner = Engine::ThreadEngine<Tree::FineLockBPlusTree>(cfg);
         runner.Run();
     }
 

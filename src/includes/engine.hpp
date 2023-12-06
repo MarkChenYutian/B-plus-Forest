@@ -1,224 +1,151 @@
 #pragma once
+#include <cmath>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <unistd.h>
-#include <pthread.h>
-#include <sys/wait.h>
-#include <type_traits>
 #include <barrier>
 #include <optional>
 #include <iostream>
+#include <cassert>
+#include <type_traits>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/wait.h>
 #include <stdio.h>
 #include "tree.h"
-
-pthread_barrier_t barrier;
-pthread_barrier_t barrier2;
-
-enum TestOp {INSERT, REMOVE, GET, BARRIER};
+#include "timing.h"
 
 namespace Engine {
 
-struct TestEntry {
-    int value;
-    TestOp op;
-    std::optional<int> expect;
-    bool isBarrier() {return op == TestOp::BARRIER;}
-
-    void print() {
-        if (op == TestOp::GET) std::cout << "GET ";
-        else if (op == TestOp::INSERT) std::cout << "INSERT ";
-        else std::cout << "DELETE ";
-
-        if (expect.has_value()) {
-            std::cout << "\t" << value << ", expect: " << expect.value() << std::endl;
-        } else {
-            std::cout << "\t" << value << ", expect: NONE" << std::endl;
-        }
-    }
-
-    void parse(const std::string &line) {
-        if (line == "BARRIER") {
-            op = TestOp::BARRIER;
-            return;
-        }
-
-        std::istringstream iss(line);
-        std::string tok;
-
-        std::getline(iss, tok, ',');
-        if (tok == "I") op = TestOp::INSERT;
-        else if (tok == "G") op = TestOp::GET;
-        else if (tok == "D") op = TestOp::REMOVE;
-
-        std::getline(iss, tok, ',');
-        value = std::stoi(tok);
-
-        std::getline(iss, tok, ',');
-        if (tok == "NONE") {
-            expect = std::nullopt;
-        } else {
-            expect = std::stoi(tok);
-        }
-    }
-};
-
-template <typename T, typename K>
-struct WorkerArgs {
-    T *concurrent_tree;
-    T *seq_tree;
-    Tree::SeqBPlusTree<K>  *real_seq_tree;
-    std::vector<TestEntry> *currCase;
-    int threadID;
-    int threadNum;
-};
-
-template <typename T, typename K>
-class seqEngine
-{
-static_assert(std::is_base_of<Tree::ITree<K>, T>::value, "T must inherit from Tree::ITree");
-
-private:
+struct EngineConfig {
     int order;
     int numProcess;
-    std::vector<pid_t> pids;
     std::vector<std::string> paths;
-    std::vector<TestEntry>   currCase;
-
-public:
-    seqEngine(std::vector<std::string> paths, int order, int numProcess): 
-        paths(paths), order(order), numProcess(numProcess)
-        {};
-
-    void Run() {
-        for (int i = 0; i < numProcess; i ++) {
-            pids.push_back(fork());
-            if (pids[i] == 0) {
-                for (size_t j = i; j < paths.size(); j += numProcess) {
-                    const auto testCase = paths[j];
-                    loadTestCase(testCase);
-                    {
-                        auto tree = T(order);
-                        bool pass = runTestCase(tree);
-                        if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
-                        else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
-                        assert(pass);
-                    }
-                }
-                _exit(0);
-            }
-        }
-
-        int wait_state;
-        while (wait(&wait_state) > 0) {}
-    }
-
-private:
-    void loadTestCase(const std::string &filePath) {
-        currCase.clear();
-        std::ifstream file(filePath);
-        std::string   line;
-        if (!file) {
-            std::cerr << "Unable to load file at " << filePath;
-            assert(false);
-        }
-        while (std::getline(file, line)) {
-            // parseLine(line);
-            TestEntry entry;
-            entry.parse(line);
-            currCase.push_back(entry);
-        }
-    }
-
-    bool runTestCase(T &tree) {
-        for (size_t idx = 0; idx < currCase.size(); idx ++) {
-            TestEntry entry = currCase[idx];
-            // tree.print();
-            // std::cout << "<<<<<<<<<<<<<<<<<<<<<<<<\n\n" << std::endl;
-            // entry.print();
-
-            if (idx % 1000 == 0 && !tree.debug_checkIsValid(false)) return false;
-            // if (!tree.debug_checkIsValid(true)) return false;
-
-            bool hasKey;
-            std::optional<int> key;
-
-            switch (entry.op){
-            case TestOp::INSERT:
-                tree.insert(entry.value);
-                break;
-            
-            case TestOp::REMOVE:
-                hasKey = tree.remove(entry.value);
-                if (hasKey != entry.expect.has_value()) {
-                    std::cout << "\n(REMOVE) FAILED AT LINE " << idx << " output: " << hasKey <<std::endl;
-                    entry.print();
-                    tree.print();
-                    return false;
-                }
-                break;
-
-            case TestOp::GET:
-                key = tree.get(entry.value);
-                if (key.has_value() != entry.expect.has_value()) {
-                    std::cout << "\n(GET, CASE1) FAILED AT LINE " << idx << std::endl;
-                    entry.print();
-                    tree.print();
-                    return false;
-                }
-                if (key.has_value() && (key.value() != entry.expect.value())) {
-                    std::cout << "\n(GET, CASE2) FAILED AT LINE " << idx << std::endl;
-                    entry.print();
-                    return false;
-                }
-                break;
-            }
-        }
-        return true;
-    }
 };
 
-template <typename T, typename K>
-class threadingEngine
-{
-static_assert(std::is_base_of<Tree::ITree<K>, T>::value, "T must inherit from Tree::ITree");
+template <template <typename> class T>
+class IEngine {
+    public:
+        enum TestOp {INSERT, REMOVE, GET, BARRIER};
 
-private:
-    int order;
-    int threadNum;
-    std::vector<std::string> paths;
-    std::vector<TestEntry>   currCase;
+        struct TestEntry {
+            int value;
+            TestOp op;
+            std::optional<int> expect;
 
-public:
-    threadingEngine(std::vector<std::string> paths, int order, int threadNum): 
-        paths(paths), order(order), threadNum(threadNum)
-        {
-            currCase = std::vector<TestEntry>();
+            TestEntry(const std::string &line);
+            bool isBarrier() {return op == TestOp::BARRIER;};
+            void print();
         };
 
+        struct WorkerArgs {
+            T<int> *concurrent_tree;
+            T<int> *seq_tree;
+            std::vector<TestEntry> *currCase;
+            int threadID;
+            int threadNum;
+            pthread_barrier_t *barrierA;
+            pthread_barrier_t *barrierB;
+        };
+    
+    public:
+        int order;
+        int numProcess;
+        pthread_barrier_t barrierA;
+        pthread_barrier_t barrierB;
+        std::vector<std::string> paths;
+        std::vector<TestEntry> currCase;
+    
+    public:
+        void Run();
+        void loadTestCase(const std::string &filePath);
+};
+
+template <template <typename> class T>
+class SeqEngine : public IEngine<T> {
+    public:
+        SeqEngine(const EngineConfig &cfg){
+            this->paths = cfg.paths;
+            this->order = cfg.order;
+            this->numProcess = cfg.numProcess;
+        }
+
+        void Run() {
+            for (size_t j = 0; j < this->paths.size(); j ++) {
+                const auto testCase = this->paths[j];
+                IEngine<T>::loadTestCase(testCase);
+                {
+                    auto tree = T<int>(this->order);
+                    bool pass = runTestCase(tree);
+                    if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
+                    else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
+                    assert(pass);
+                }
+            }
+        }
+
+        bool runTestCase(T<int> &tree) {
+            for (size_t idx = 0; idx < this->currCase.size(); idx ++) {
+                auto entry = this->currCase[idx];
+                bool hasKey;
+                std::optional<int> key;
+                switch (entry.op){
+                case IEngine<T>::TestOp::INSERT:
+                    tree.insert(entry.value);
+                    break;
+                
+                case IEngine<T>::TestOp::REMOVE:
+                    hasKey = tree.remove(entry.value);
+                    if (hasKey != entry.expect.has_value()) return false;
+                    break;
+
+                case IEngine<T>::TestOp::GET:
+                    key = tree.get(entry.value);
+                    if (key.has_value() != entry.expect.has_value()) return false;
+                    if (key.has_value() && (key.value() != entry.expect.value())) return false;
+                    break;
+                }
+            }
+            return true;
+        }
+};
+
+template <template <typename> class T>
+class ThreadEngine : public IEngine<T> {
+    public:
+
+    ThreadEngine(const EngineConfig &cfg) {
+        this->paths = cfg.paths;
+        this->order = cfg.order;
+        this->numProcess = cfg.numProcess;
+    };
+
     void Run() {
-        for (size_t i = 0; i < paths.size(); i ++) {
-            const auto testCase = paths[i];
+        for (size_t i = 0; i < this->paths.size(); i ++) {
+            auto testCase = this->paths[i];
             std::cout << "Running " << testCase << " ..." << std::flush;
-            loadTestCase(testCase);
+            IEngine<T>::loadTestCase(testCase);
             {
-                auto concurrent_tree = T(order);
-                auto seq_tree = T(order);
-                WorkerArgs<T, K> args[threadNum + 2];
+                int threadNum = this->numProcess;
+                auto concurrent_tree = T<int>(this->order);
+                auto seq_tree = T<int>(this->order);
+                typename IEngine<T>::WorkerArgs args[threadNum + 2];
                 pthread_t threads[threadNum + 2];
 
                 for (int threadId = 0; threadId < threadNum + 2; threadId ++) {
                     args[threadId].concurrent_tree = &concurrent_tree;
                     args[threadId].seq_tree  = &seq_tree;
-                    args[threadId].currCase  = &currCase;
+                    args[threadId].currCase  = &this->currCase;
                     args[threadId].threadID  = threadId;
                     args[threadId].threadNum = threadNum;
+                    args[threadId].barrierA  = &this->barrierA;
+                    args[threadId].barrierB  = &this->barrierB;
                 }
 
                 // initialize the barrier with the number of threads
-                pthread_barrier_init(&barrier, NULL, threadNum + 2);
-                pthread_barrier_init(&barrier2, NULL, threadNum + 2);
+                pthread_barrier_init(&this->barrierA, NULL, threadNum + 2);
+                pthread_barrier_init(&this->barrierB, NULL, threadNum + 2);
                 
                 for (int threadId = 0; threadId < threadNum + 2; threadId ++) {
                     if (threadId < threadNum + 1) {
@@ -239,8 +166,8 @@ public:
                 }
 
                 // Destroy the barrier, condition, mutex
-                pthread_barrier_destroy(&barrier);
-                pthread_barrier_destroy(&barrier2);
+                pthread_barrier_destroy(&this->barrierA);
+                pthread_barrier_destroy(&this->barrierB);
 
                 bool pass = concurrent_tree.debug_checkIsValid(false);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << i << " " << testCase << "\033[0m" << std::endl;
@@ -250,31 +177,13 @@ public:
         }
     }
 
-private:
-    void loadTestCase(const std::string &filePath) {
-        currCase.clear();
-
-        std::ifstream file(filePath);
-        std::string   line;
-        if (!file) {
-            std::cerr << "Unable to load file at " << filePath;
-            assert(false);
-        }
-
-        int counter = 0;
-
-        while (std::getline(file, line)) {
-            TestEntry entry;
-            entry.parse(line);
-            currCase.emplace_back(entry);
-        }
-    }
+    private:
 
     static void *runTestCase(void* arg) {
-        WorkerArgs<T, K> *warg = static_cast<WorkerArgs<T, K>*>(arg);
+        auto warg = static_cast<typename IEngine<T>::WorkerArgs *>(arg);
         
-        T *tree;
-        std::vector<TestEntry> *currCase = warg->currCase;
+        T<int> *tree;
+        auto currCase = warg->currCase;
         int thread_id = warg->threadID;
         DBG_ASSERT(thread_id < warg->threadNum + 1);
 
@@ -284,64 +193,62 @@ private:
         else tree = warg->seq_tree;
 
         for (size_t idx = 0; idx < currCase->size(); idx ++) {
-            TestEntry entry = currCase->at(idx);
+            auto entry = currCase->at(idx);
 
-            if (isConcurrentThread && 
-                !entry.isBarrier() && 
+            if (isConcurrentThread && !entry.isBarrier() && 
                 (entry.value % warg->threadNum != thread_id)
-            ) {
-                continue;
-            }
+            ) continue;
             
             bool hasKey;
             std::optional<int> key;
 
             switch (entry.op){
-            case TestOp::INSERT:
+            case IEngine<T>::TestOp::INSERT:
                 key = tree->get(entry.value);
                 if (key.has_value()) break;
                 tree->insert(entry.value);
                 break;
             
-            case TestOp::REMOVE:
+            case IEngine<T>::TestOp::REMOVE:
                 hasKey = tree->remove(entry.value);
                 break;
 
-            case TestOp::GET:
+            case IEngine<T>::TestOp::GET:
                 key = tree->get(entry.value);
                 break;
             
-            case TestOp::BARRIER:
-                pthread_barrier_wait(&barrier);
-                pthread_barrier_wait(&barrier2);
+            case IEngine<T>::TestOp::BARRIER:
+                pthread_barrier_wait(warg->barrierA);
+                pthread_barrier_wait(warg->barrierB);
             }
         }
         return nullptr;
     }
 
     static void *runReadCheck(void *arg) {
-        WorkerArgs<T, K> *warg = static_cast<WorkerArgs<T, K>*>(arg);
+        auto warg = static_cast<typename IEngine<T>::WorkerArgs *>(arg);
+
         int thread_id = warg->threadID;
         assert(thread_id == warg->threadNum + 1);
 
-        T *concurrent_tree = warg->concurrent_tree;
-        T *seq_tree = warg->seq_tree;
-        std::vector<TestEntry> *currCase = warg->currCase;
+        T<int> *concurrent_tree = warg->concurrent_tree;
+        T<int> *seq_tree        = warg->seq_tree;
+        auto    currCase        = warg->currCase;
         
 
         for (size_t idx = 0; idx < currCase->size(); idx ++) {
-            TestEntry entry = currCase->at(idx);
+            auto entry = currCase->at(idx);
 
             bool hasKey;
             std::optional<int> key;
             switch (entry.op){
-            case TestOp::GET:
+            case IEngine<T>::TestOp::GET:
                 key = concurrent_tree->get(entry.value);
                 break;
-            case TestOp::BARRIER:
-                pthread_barrier_wait(&barrier);
+            case IEngine<T>::TestOp::BARRIER:
+                pthread_barrier_wait(warg->barrierA);
                 compare(concurrent_tree, seq_tree);
-                pthread_barrier_wait(&barrier2);
+                pthread_barrier_wait(warg->barrierB);
                 break;
             default:
                 break;
@@ -350,12 +257,12 @@ private:
         return nullptr;
     }
 
-    static bool compare(T *concurrent_tree, T *seq_tree) {
+    static bool compare(T<int> *concurrent_tree, T<int> *seq_tree) {
         concurrent_tree->debug_checkIsValid(false);
         seq_tree->debug_checkIsValid(false);
 
-        std::vector<K> concurrent_vec = concurrent_tree->toVec();
-        std::vector<K> seq_vec = seq_tree->toVec();
+        std::vector<int> concurrent_vec = concurrent_tree->toVec();
+        std::vector<int> seq_vec = seq_tree->toVec();
 
         if (concurrent_vec.size() != seq_vec.size()) {
             throw std::runtime_error("concurrent vec size different from seq_vec size");
@@ -371,126 +278,157 @@ private:
     }
 };
 
-template <typename T, typename K>
-class lockfreeEngine
-{
-private:
-    int order;
-    int numWorker;
-    std::vector<std::string> paths;
-    std::vector<TestEntry>   currCase;
+template <template <typename> class T>
+class BenchmarkEngine : public IEngine<T> {
+public:
+    int repeatNum;
 
 public:
-    lockfreeEngine(std::vector<std::string> paths, int order, int numWorker): 
-        paths(paths), order(order), numWorker(numWorker)
-        {};
+    BenchmarkEngine(const EngineConfig &cfg) {
+        this->order = cfg.order;
+        this->paths = cfg.paths;
+        this->numProcess = cfg.numProcess;
+        this->repeatNum = 3;
+    }
 
     void Run() {
-        for (size_t j = 0; j < paths.size(); j ++) {
-            const auto testCase = paths[j];
-            loadTestCase(testCase);
-            {
-                auto tree = T(order, numWorker);
-                bool pass = runTestCase(tree);
-                if (pass) std::cout << "\r\033[1;32mPASS Case " << j << " " << testCase << "\033[0m" << std::endl;
-                else std::cout << "\r\033[1;31mFAIL Case " << j << " " << testCase << "\033[0m" << std::endl;
-                assert(pass);
+        int threadNum = this->numProcess;
+        double average_qps = 0;
+        for (size_t i = 0; i < this->paths.size(); i ++) {
+            auto testCase = this->paths[i];
+            IEngine<T>::loadTestCase(testCase);
+
+            double run_seconds = 0.0f, build_seconds = 0.0f;
+            
+            for (int repeat = 0; repeat < repeatNum; repeat ++) {
+                Timer caseTimer;
+                auto concurrent_tree = T<int>(this->order);
+                build_seconds += caseTimer.elapsed();
+
+                typename IEngine<T>::WorkerArgs args[threadNum];
+                pthread_t threads[threadNum];
+
+                for (int threadId = 0; threadId < threadNum; threadId ++) {
+                    args[threadId].concurrent_tree = &concurrent_tree;
+                    args[threadId].currCase  = &this->currCase;
+                    args[threadId].threadID  = threadId;
+                    args[threadId].threadNum = threadNum;
+                }
+                
+                caseTimer.reset();
+                for (int threadId = 0; threadId < threadNum; threadId ++) {
+                    pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+                }
+
+                for (int i = 0; i < threadNum; i++){
+                    if (pthread_join(threads[i], NULL) != 0) {
+                        std::cerr << "Error joining thread " << i << std::endl;
+                        exit(1);
+                    }
+                }
+
+                run_seconds += caseTimer.elapsed();
             }
+
+            run_seconds = run_seconds / repeatNum;
+            build_seconds = build_seconds / repeatNum;
+            float estimated_qps = static_cast<float>(this->currCase.size()) / run_seconds / 1000000.0f;
+            average_qps += estimated_qps;
+
+            std::cout << "\r\033[1;32mCase " << i << "\t " << testCase << "\033[0m" << "\t";
+            double run_ms = run_seconds * 1000, build_ms = build_seconds * 1000;
+            std::cout << "\tBenchmark: " << 
+                roundFloat(estimated_qps, 4) << "MQPS\t in " << 
+                roundFloat(run_ms       , 4) << "ms, \t prep in " << 
+                roundFloat(build_ms     , 4) << "ms" << std::endl;
         }
+        std::cout << "Average MQPS:" << roundFloat(average_qps / this->paths.size(), 5) << std::endl;
     }
 
 private:
-    void loadTestCase(const std::string &filePath) {
-        currCase.clear();
-        std::ifstream file(filePath);
-        std::string   line;
-        if (!file) {
-            std::cerr << "Unable to load file at " << filePath;
-            assert(false);
-        }
-        while (std::getline(file, line)) {
-            TestEntry entry;
-            entry.parse(line);
-            currCase.push_back(entry);
-        }
+    float roundFloat(float number, int decimalPlaces) {
+        float scale = std::pow(10.0f, decimalPlaces);
+        return std::round(number * scale) / scale;
     }
 
-    bool runTestCase(T &tree) {
-        for (size_t idx = 0; idx < currCase.size(); idx ++) {
-            TestEntry entry = currCase[idx];
+    static void *runTestCase(void* arg) {
+        auto warg = static_cast<typename IEngine<T>::WorkerArgs *>(arg);
+        T<int> *tree = warg->concurrent_tree;
+        auto currCase = warg->currCase;
+        int thread_id = warg->threadID;
+        DBG_ASSERT(thread_id < warg->threadNum + 1);
 
+        for (size_t idx = 0; idx < currCase->size(); idx ++) {
+            auto entry = currCase->at(idx);
+            if (entry.value % warg->threadNum != thread_id) continue;
             switch (entry.op){
-            case TestOp::INSERT:
-                tree.insert(entry.value);
+            case IEngine<T>::TestOp::INSERT:
+                tree->insert(entry.value);
                 break;
-            
-            case TestOp::REMOVE:
-                tree.remove(entry.value);
+            case IEngine<T>::TestOp::REMOVE:
+                tree->remove(entry.value);
                 break;
-
-            case TestOp::GET:
-                tree.get(entry.value);
+            case IEngine<T>::TestOp::GET:
+                tree->get(entry.value);
+                break;
+            case IEngine<T>::TestOp::BARRIER:
                 break;
             }
         }
-        return true;
+        return nullptr;
     }
 };
 
-template <typename T, typename K>
-class distriEngine
-{
-private:
-    int order;
-    int numWorker;
-    std::vector<std::string> paths;
-    std::vector<TestEntry>   currCase;
-
-public:
-    distriEngine(std::vector<std::string> paths, int order, int numWorker): 
-        paths(paths), order(order), numWorker(numWorker)
-        {};
-
-    void Run() {
-        
+template <template <typename> class T>
+IEngine<T>::TestEntry::TestEntry(const std::string &line) {
+    if (line == "BARRIER") {
+        op = TestOp::BARRIER;
+        return;
     }
 
-private:
-    void loadTestCase(const std::string &filePath) {
-        currCase.clear();
-        std::ifstream file(filePath);
-        std::string   line;
-        if (!file) {
-            std::cerr << "Unable to load file at " << filePath;
-            assert(false);
-        }
-        while (std::getline(file, line)) {
-            TestEntry entry;
-            entry.parse(line);
-            currCase.push_back(entry);
-        }
-    }
+    std::istringstream iss(line);
+    std::string tok;
 
-    bool runTestCase(T &tree) {
-        for (size_t idx = 0; idx < currCase.size(); idx ++) {
-            TestEntry entry = currCase[idx];
+    std::getline(iss, tok, ',');
+    if (tok == "I") op = TestOp::INSERT;
+    else if (tok == "G") op = TestOp::GET;
+    else if (tok == "D") op = TestOp::REMOVE;
 
-            switch (entry.op){
-            case TestOp::INSERT:
-                tree.insert(entry.value);
-                break;
-            
-            case TestOp::REMOVE:
-                tree.remove(entry.value);
-                break;
+    std::getline(iss, tok, ',');
+    value = std::stoi(tok);
 
-            case TestOp::GET:
-                tree.get(entry.value);
-                break;
-            }
-        }
-        return true;
-    }
-};
-
+    std::getline(iss, tok, ',');
+    if (tok == "NONE") expect = std::nullopt;
+    else expect = std::stoi(tok);
 }
+
+template <template <typename> class T>
+void IEngine<T>::TestEntry::print() {
+    if (op == TestOp::GET) std::cout << "GET ";
+    else if (op == TestOp::INSERT) std::cout << "INSERT ";
+    else if (op == TestOp::REMOVE) std::cout << "DELETE ";
+    else std::cout << "BARRIER ";
+
+    if (expect.has_value()) {
+        std::cout << "\t" << value << ", expect: " << expect.value() << std::endl;
+    } else {
+        std::cout << "\t" << value << ", expect: NONE" << std::endl;
+    }
+}
+
+template <template <typename> class T>
+void IEngine<T>::loadTestCase(const std::string &filePath) {
+    currCase.clear();
+    std::ifstream file(filePath);
+    std::string   line;
+    if (!file) {
+        std::cerr << "Unable to load file at " << filePath;
+        assert(false);
+    }
+    while (std::getline(file, line)) {
+        // TestEntry entry(line);
+        currCase.emplace_back(line);
+    }
+}
+
+};

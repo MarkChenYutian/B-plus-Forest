@@ -17,12 +17,10 @@ int main() {
         std::string s = "../src/test/mega_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
-    
     {
-        auto runner = Engine::lockfreeEngine<Tree::FreeBPlusTree<int>, int>(Cases, 16, 8);
+        Engine::EngineConfig cfg {5, 1, Cases};
+        auto runner = Engine::BenchmarkEngine<Tree::FreeBPlusTree>(cfg);
         runner.Run();
     }
-
-
     return 0;
 }

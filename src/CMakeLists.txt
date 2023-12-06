@@ -22,7 +22,6 @@ set(HEADERS
 
     # Project file
     includes/tree.h
-    includes/benchmark.hpp
     includes/engine.hpp
 
     # Free Tree
@@ -97,7 +96,7 @@ set_target_properties(coarseTestRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_
 set(FINE_TEST_SRC src/fineTest.cpp)
 # Test engine build
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
-add_executable(fineTestDebug ${HEADERS} ${COARSE_TEST_SRC})
+add_executable(fineTestDebug ${HEADERS} ${FINE_TEST_SRC})
 target_compile_options(fineTestDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(fineTestDebug PRIVATE Threads::Threads ${MPI_LIBRARIES})
 set_target_properties(fineTestDebug PROPERTIES 

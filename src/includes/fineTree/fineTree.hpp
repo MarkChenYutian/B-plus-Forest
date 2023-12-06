@@ -3,7 +3,8 @@
 #include <iostream>
 #include <cassert>
 #include <optional>
-#include "../tree.h"
+#include "tree.h"
+#include "fineTree/fineNode.hpp"
 
 namespace Tree {
     template<typename T>
