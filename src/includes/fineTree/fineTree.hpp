@@ -49,7 +49,7 @@ namespace Tree {
             }
         }
 
-        dq.releaseAllWriteLocks();
+        dq.releaseAll();
     }
 
     template <typename T>
@@ -63,7 +63,7 @@ namespace Tree {
             FineNode<T> *child = node->children[index];
 
             dq.retrieveLock(child);
-            dq.releasePrevReadLocks();
+            dq.releasePrev();
 
             node = child;
         }
@@ -77,7 +77,7 @@ namespace Tree {
 
         while (!node->isLeaf) {
             if (node->numKeys() + 1 < ORDER_) {
-                dq.releasePrevWriteLocks();
+                dq.releasePrev();
             }
 
             /** getGTKeyIdx will have index = 0 if node is dummy node */
@@ -98,7 +98,7 @@ namespace Tree {
 
         while (!node->isLeaf) {
             if (moreHalfFull(node)) {
-                dq.releasePrevWriteLocks();
+                dq.releasePrev();
             }
             /** getGTKeyIdx will have index = 0 if node is dummy node */
             size_t index = node->getGtKeyIdx(key);
@@ -278,7 +278,7 @@ namespace Tree {
         DBG_ASSERT(dq.isLocked(node));
 
         if (node == &rootPtr) {
-            dq.releaseAllReadLocks();
+            dq.releaseAll();
             return std::nullopt;
         }
 
@@ -287,11 +287,11 @@ namespace Tree {
         int index = std::distance(node->keys.begin(), it);
 
         if (index < node->numKeys() && node->keys[index] == key) {
-            dq.releaseAllReadLocks();
+            dq.releaseAll();
             return key; // Key found in this node
         }
 
-        dq.releaseAllReadLocks();
+        dq.releaseAll();
         return std::nullopt; // Key not found
     }
 
@@ -316,7 +316,7 @@ namespace Tree {
          * must return false.
          */
         if (!removeFromLeaf(node, key)) {
-            dq.releaseAllWriteLocks();
+            dq.releaseAll();
             return false;
         }
         
@@ -336,7 +336,7 @@ namespace Tree {
             dq.popAndDelete(node);
             // delete node; // TODO: check if correct
 
-            dq.releaseAllWriteLocks();
+            dq.releaseAll();
             return true;
         }
         
@@ -346,7 +346,7 @@ namespace Tree {
          * */
         if (!isHalfFull(node)) removeBorrow(node, dq);
 
-        dq.releaseAllWriteLocks();
+        dq.releaseAll();
         return true;
     }
 
@@ -394,7 +394,7 @@ namespace Tree {
                       keySiblingMove = leftNode->keys.back();
                     
                     node->parent->keys[index] = keySiblingMove;
-                    node->keys.push_front(keyParentMove);
+                    node->keys.insert(node->keys.begin(), keyParentMove);
                     leftNode->keys.pop_back();
 
                     node->children.push_front(leftNode->children.back());
@@ -407,7 +407,7 @@ namespace Tree {
                     T keySiblingMove = leftNode->keys.back();
 
                     node->parent->keys[index] = keySiblingMove;
-                    node->keys.push_front(keySiblingMove);
+                    node->keys.insert(node->keys.begin(), keySiblingMove);
                     leftNode->keys.pop_back();
                 }
                 
@@ -439,7 +439,7 @@ namespace Tree {
                     
                     node->parent->keys[index] = keySiblingMove;
                     node->keys.push_back(keyParentMove);
-                    rightNode->keys.pop_front();
+                    rightNode->keys.erase(rightNode->keys.begin());
 
                     node->children.push_back(rightNode->children[0]);
                     rightNode->children.pop_front();
@@ -455,7 +455,7 @@ namespace Tree {
                     T keySiblingMove = node->next->keys[0];
 
                     node->keys.push_back(keySiblingMove);
-                    node->next->keys.pop_front();
+                    node->next->keys.erase(node->next->keys.begin());
                     node->parent->keys[index] = node->next->keys[0];
                 }
             } else {
@@ -533,7 +533,7 @@ namespace Tree {
                 /**
                  * Case 3.a Merge with right where both nodes are internal nodes
                  * */
-                rightNode->keys.push_front(parent->keys[index]);
+                rightNode->keys.insert(rightNode->keys.begin(), parent->keys[index]);
                 rightNode->children.insert(
                     rightNode->children.begin(), leftNode->children.begin(), leftNode->children.end()
                 );

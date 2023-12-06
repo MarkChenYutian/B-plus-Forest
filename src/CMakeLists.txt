@@ -15,6 +15,19 @@ find_package(Threads REQUIRED)
 find_package(Boost REQUIRED)
 find_package(MPI REQUIRED)
 
+# Check for the compiler and set the appropriate flags
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Add -msse2 to the compile options
+    add_compile_options(-msse2)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # MSVC enables SSE2 by default for x64 targets
+    # For x86 targets, use /arch:SSE2
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        add_compile_options(/arch:SSE2)
+    endif()
+endif()
+
+
 # Define header files
 set(HEADERS
     # Utility
@@ -153,7 +166,7 @@ set_target_properties(FreeTreeRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FL
 
 set(BENCHMARK_SRC src/benchmark.cpp)
 add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
-target_compile_options(benchmarkOptimized PRIVATE -O2)
+target_compile_options(benchmarkOptimized PRIVATE -O0)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")

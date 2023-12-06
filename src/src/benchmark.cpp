@@ -34,21 +34,22 @@ void MetaEngine(TreeType type, std::string const &name, std::vector<std::string>
 
 int main() {
     std::vector<std::string> Cases = {};
-    for (int i = 0; i < 3; i ++) {
-        std::string s = "../src/test/large_" + std::to_string(i) + ".case";
+    for (int i = 0; i < 1; i ++) {
+        std::string s = "../test/large_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
 
-    Engine::EngineConfig sequentialCfg {7, 1, Cases};
-    Engine::EngineConfig parallelx2Cfg {7, 2, Cases};
-    Engine::EngineConfig parallelx4Cfg {7, 4, Cases};
+    Engine::EngineConfig sequentialCfg {9, 1, Cases};
+    Engine::EngineConfig parallelx2Cfg {9, 2, Cases};
+    Engine::EngineConfig parallelx4Cfg {9, 4, Cases};
 
-    MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
+//    MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
     // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
     // MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
-    // MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
-    // MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);
-    MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
-    
+//     MetaEngine(TreeType::FineGrain  , "FineGrain x1", Cases, sequentialCfg);
+//     MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
+     MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);
+//     MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
+
     return 0;
 }

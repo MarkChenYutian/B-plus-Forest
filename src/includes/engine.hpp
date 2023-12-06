@@ -281,14 +281,14 @@ class ThreadEngine : public IEngine<T> {
 template <template <typename> class T>
 class BenchmarkEngine : public IEngine<T> {
 public:
-    int repeatNum;
+    int repeatNum{};
 
 public:
     BenchmarkEngine(const EngineConfig &cfg) {
         this->order = cfg.order;
         this->paths = cfg.paths;
         this->numProcess = cfg.numProcess;
-        this->repeatNum = 3;
+        this->repeatNum = 1;
     }
 
     void Run() {
@@ -426,7 +426,6 @@ void IEngine<T>::loadTestCase(const std::string &filePath) {
         assert(false);
     }
     while (std::getline(file, line)) {
-        // TestEntry entry(line);
         currCase.emplace_back(line);
     }
 }

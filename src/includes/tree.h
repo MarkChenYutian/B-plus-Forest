@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <cassert>
+#include <emmintrin.h>
 
 #ifdef DEBUG
 std::mutex print_mutex;
@@ -27,7 +28,11 @@ std::mutex print_mutex;
 
 #endif
 
+constexpr size_t simdWidth = sizeof(__m128i) / sizeof(int);
+
 namespace Tree {
+
+
     template <typename T>
     class ITree {
         public:
@@ -42,6 +47,43 @@ namespace Tree {
     };
 
     template <typename T>
+    struct EfficientKeyFinder {
+        static inline size_t getGtKeyIdxSpecialized(const std::vector<T> &keys, T key) {
+            size_t index = 0, numKey = keys.size();
+            while (index < numKey && keys[index] <= key) index ++;
+            return index;
+        }
+    };
+
+    template <>
+    struct EfficientKeyFinder<int> {
+        static inline size_t getGtKeyIdxSpecialized(const std::vector<int> &keys, int key) {
+            size_t index = 0;
+            size_t numKeys = keys.size();
+            __m128i keyVector = _mm_set1_epi32(key);
+
+            while (index + simdWidth < numKeys) {
+                __m128i dataVector = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&keys[index]));
+                __m128i cmpResult = _mm_cmpgt_epi32(dataVector, keyVector);
+                int mask = _mm_movemask_epi8(cmpResult);
+                if (mask != 0) {
+                    // Find the exact element using scalar comparison
+                    for (size_t i = 0; i < simdWidth; ++i) {
+                        if (keys[index + i] > key) {
+                            return index + i;
+                        }
+                    }
+                }
+                index += simdWidth;
+            }
+
+            // Handle any remaining elements
+            while (index < numKeys && keys[index] <= key) index++;
+            return index;
+        }
+    };
+
+    template <typename T>
     /**
      * NOTE: A tree node for sequential version of B+ tree
      */
@@ -49,13 +91,13 @@ namespace Tree {
         bool isLeaf;                       // Check if node is leaf node
         bool isDummy;                      // Check if node is dummy node
         int  childIndex;                   // Which child am I in parent? (-1 if no parent)
-        std::deque<T> keys;                // Keys
+        std::vector<T> keys;               // Keys
         std::deque<SeqNode<T>*> children;  // Children
         SeqNode<T>* parent;                // Pointer to parent node
         SeqNode<T>* next;                  // Pointer to left sibling
         SeqNode<T>* prev;                  // Pointer to right sibling
 
-        SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
+        explicit SeqNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
         void printKeys();
         void releaseAll();
         void consolidateChild();
@@ -79,22 +121,20 @@ namespace Tree {
         }
     };
 
-    template <typename T>
     /**
      * NOTE: A tree node for sequential version of B+ tree
      */
+    template <typename T>
     struct FreeNode {
         bool isLeaf;                       // Check if node is leaf node
-        bool isDummy;                      // Check if node is dummy node
         int  childIndex;                   // Which child am I in parent? (-1 if no parent)
-        std::deque<T> keys;                // Keys
+        std::vector<T> keys;               // Keys
         std::deque<FreeNode<T>*> children; // Children
         FreeNode<T>* parent;               // Pointer to parent node
         FreeNode<T>* next;                 // Pointer to left sibling
         FreeNode<T>* prev;                 // Pointer to right sibling
-        std::atomic<int> occupy_flag;      // An atomic CAS flag for modifying next,prev pointers.
 
-        FreeNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1), occupy_flag(0) {};
+        explicit FreeNode(bool leaf) : isLeaf(leaf), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
         void printKeys();
         void releaseAll();
         void consolidateChild();
@@ -112,9 +152,7 @@ namespace Tree {
          * **out-of-bound** index!
          */
         inline size_t getGtKeyIdx(T key) {
-            size_t index = 0;
-            while (index < numKeys() && keys[index] <= key) index ++;
-            return index;
+            return EfficientKeyFinder<T>::getGtKeyIdxSpecialized(keys, key);
         }
     };
 
@@ -128,13 +166,13 @@ namespace Tree {
         bool isLeaf;                        // Check if node is leaf node
         bool isDummy;                       // Check if node is dummy node
         int childIndex;                     // Which child am I in parent? (-1 if no parent)
-        std::deque<T> keys;                 // Keys
+        std::vector<T> keys;                // Keys
         std::deque<FineNode<T>*> children;  // Children
         FineNode<T>* parent;                // Pointer to parent node
         FineNode<T>* next;                  // Pointer to left sibling
         FineNode<T>* prev;                  // Pointer to right sibling
 
-        FineNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
+        explicit FineNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr), childIndex(-1) {};
 
         void printKeys();
         void releaseAll();
@@ -146,102 +184,60 @@ namespace Tree {
         inline size_t numKeys()  {return keys.size();}
         inline size_t numChild() {return children.size();}
         inline size_t getGtKeyIdx(T key) {
-            size_t index = 0;
-            while (index < numKeys() && keys[index] <= key) index ++;
-            return index;
+            return EfficientKeyFinder<T>::getGtKeyIdxSpecialized(keys, key);
         }
     };
 
     /**
-     * NOTE: A tree node used by the distributed version of B+ tree
-    */
-    template <typename T>
-    struct DistriNode {
-        std::shared_mutex latch;
-
-        bool isLeaf;                        // Check if node is leaf node
-        bool isDummy;                       // Check if node is dummy node
-        int childIndex;                     // Which child am I in parent? (-1 if no parent)
-        std::deque<T> keys;                 // Keys
-        std::deque<DistriNode<T>*> children;  // Children
-        DistriNode<T>* parent;                // Pointer to parent node
-        DistriNode<T>* next;                  // Pointer to left sibling
-        DistriNode<T>* prev;                  // Pointer to right sibling
-
-        DistriNode(bool leaf, bool dummy=false) : isLeaf(leaf), isDummy(dummy), parent(nullptr), next(nullptr), prev(nullptr) {};
-        
-        void printKeys();
-        void releaseAll();
-        void consolidateChild();
-        bool debug_checkParentPointers();
-        bool debug_checkOrdering(std::optional<T> lower, std::optional<T> upper);
-        bool debug_checkChildCnt(int ordering);
-
-        inline size_t numKeys()  {return keys.size();}
-        inline size_t numChild() {return children.size();}
-        inline size_t getGtKeyIdx(T key) {
-            size_t index = 0;
-            while (index < numKeys() && keys[index] <= key) index ++;
-            return index;
-        }
-    };
-
-    /**
-     * NOTE: A datastructure used to keep track of the locks retrieved by
+     * NOTE: A data structure used to keep track of the locks retrieved by
      * a single thread.
      * **Only used as a private variable within each thread, never share to others!**
      */
+    constexpr size_t LockQueueMaxSize = 20;
+
     template <typename T>
     struct LockDeque {
         bool isShared;
-        std::deque<FineNode<T>*> nodes;
-        
+        FineNode<T> *nodes[LockQueueMaxSize];
+        size_t start = 0, end = 0;
+
         LockDeque(bool isShared = false): isShared(isShared){}
         void retrieveLock(FineNode<T> *ptr) {
             if (isShared) ptr->latch.lock_shared();
             else ptr->latch.lock();
-            nodes.push_back(ptr);
+            nodes[end] = ptr;
+            end ++;
         }
         bool isLocked(FineNode<T> *ptr) {
-            for (const auto node : nodes) {
-                if (node == ptr) return true;
-            }
+            for (size_t idx = start; idx < end; idx ++) {
+                if (nodes[idx] == ptr) return true;
+            };
             return false;
         }
-        void releaseAllWriteLocks() {
-            assert (!isShared);
-            while (!nodes.empty()) {
-                nodes.front()->latch.unlock();
-                nodes.pop_front();
+        void releaseAll() {
+            while (start != end) {
+                if (nodes[start] != nullptr) {
+                    if (isShared) nodes[start]->latch.unlock_shared();
+                    else nodes[start]->latch.unlock();
+                }
+                start ++;
             }
         }
-        void releasePrevWriteLocks() {
-            assert (!isShared);
-            while (nodes.size() > 1) {
-                nodes.front()->latch.unlock();
-                nodes.pop_front();
-            }
-        }
-        void releaseAllReadLocks() {
-            assert (isShared);
-            while (!nodes.empty()) {
-                nodes.front()->latch.unlock_shared();
-                nodes.pop_front();
-            }
-        }
-        void releasePrevReadLocks() {
-            assert (isShared);
-            while (nodes.size() > 1) {
-                nodes.front()->latch.unlock_shared();
-                nodes.pop_front();
+        void releasePrev() {
+            while ((end - start) > 1) {
+                if (nodes[start] != nullptr) {
+                    if (isShared) nodes[start]->latch.unlock_shared();
+                    else nodes[start]->latch.unlock();
+                }
+                start++;
             }
         }
         void popAndDelete(FineNode<T> *ptr) {
             DBG_ASSERT(!isShared);
             DBG_ASSERT(isLocked(ptr->parent));
-            for (size_t idx = 0; idx < nodes.size(); idx ++) {
+            for (size_t idx = start; idx < end; idx ++) {
                 if (nodes[idx] == ptr) {
-                    nodes.erase(nodes.begin() + idx);
+                    nodes[idx] = nullptr;
                     break;
                 }
             }

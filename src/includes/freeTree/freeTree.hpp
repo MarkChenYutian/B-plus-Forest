@@ -54,8 +54,8 @@ namespace Tree {
              * NOTE: These are all async APIs since the lock-free B+ tree
              * will execute all the requests in an asynchronous batch operation
              */
-            FreeBPlusTree(int order, int numWorker=2):
-                ORDER_(order), size_(0), rootPtr(FreeNode<T>(true, true))
+            explicit FreeBPlusTree(int order, int numWorker=2):
+                ORDER_(order), size_(0), rootPtr(FreeNode<T>(true))
             {
                 scheduler_ = new Scheduler(numWorker, &rootPtr, order);
             }

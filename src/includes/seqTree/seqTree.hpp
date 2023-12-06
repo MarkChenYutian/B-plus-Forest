@@ -320,7 +320,9 @@ namespace Tree {
                       keySiblingMove = leftNode->keys.back();
                     
                     node->parent->keys[index] = keySiblingMove;
-                    node->keys.push_front(keyParentMove);
+                    // NOTE: Switch to std::vector for contiguous memory (and SIMD comparison)
+                    node->keys.insert(node->keys.begin(), keyParentMove);
+
                     leftNode->keys.pop_back();
 
                     node->children.push_front(leftNode->children.back());
@@ -333,7 +335,10 @@ namespace Tree {
                     T keySiblingMove = leftNode->keys.back();
 
                     node->parent->keys[index] = keySiblingMove;
-                    node->keys.push_front(keySiblingMove);
+
+                    // NOTE: Switch to std::vector for contiguous memory (and SIMD comparison)
+                    node->keys.insert(node->keys.begin(), keySiblingMove);
+//                    node->keys.push_front(keySiblingMove);
                     leftNode->keys.pop_back();
                 }
                 
@@ -365,7 +370,9 @@ namespace Tree {
                     
                     node->parent->keys[index] = keySiblingMove;
                     node->keys.push_back(keyParentMove);
-                    rightNode->keys.pop_front();
+                    // NOTE: Switch to std::vector for contiguous memory (and SIMD comparison)
+                    rightNode->keys.erase(rightNode->keys.begin());
+//                    rightNode->keys.pop_front();
 
                     node->children.push_back(rightNode->children[0]);
                     rightNode->children.pop_front();
@@ -381,7 +388,9 @@ namespace Tree {
                     T keySiblingMove = rightNode->keys[0];
 
                     node->keys.push_back(keySiblingMove);
-                    rightNode->keys.pop_front();
+                    // NOTE: Switch to std::vector for contiguous memory (and SIMD comparison)
+                    rightNode->keys.erase(rightNode->keys.begin());
+//                    rightNode->keys.pop_front();
                     node->parent->keys[index] = rightNode->keys[0];
                 }
             } else {
@@ -459,7 +468,8 @@ namespace Tree {
                 /**
                  * Case 3.a Merge with right where both nodes are internal nodes
                  * */
-                rightNode->keys.push_front(parent->keys[index]);
+                 rightNode->keys.insert(rightNode->keys.begin(), parent->keys[index]);
+//                rightNode->keys.push_front(parent->keys[index]);
                 rightNode->children.insert(
                     rightNode->children.begin(), leftNode->children.begin(), leftNode->children.end()
                 );

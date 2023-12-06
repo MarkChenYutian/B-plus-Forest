@@ -25,7 +25,6 @@ void MetaEngine(TreeType type, std::string const &name, std::vector<std::string>
         runner.Run();
     } else {
         assert(false);
-        // Does not support DistriBPlusTree yet!
     }
 }
 
@@ -37,7 +36,7 @@ int main(int argc, char **argv) {
     order = std::stoi(argv[1]);
     numThread = std::stoi(argv[2]);
     treeType = argv[3];
-    baseDir = "../src/test/";
+    baseDir = "../test/";
     caseName = argv[4];
 
     if (treeType == "Seq") type = TreeType::Sequential;

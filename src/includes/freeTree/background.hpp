@@ -21,7 +21,7 @@ namespace Tree {
         FreeNode<T> *rootPtr = wargs->node;
         const int numWorker = scheduler->numWorker_;
 
-        while (!isTerminate(scheduler->flag) || getStage(scheduler->flag) != PalmStage::COLLECT) {
+        while (getStage(scheduler->flag) != PalmStage::COLLECT ||!isTerminate(scheduler->flag)) {
             if (!scheduler->bg_move) continue;
             PalmStage currentState = getStage(scheduler->flag);
             
@@ -82,7 +82,7 @@ namespace Tree {
                 isRootUpdate = redistribute(scheduler, assign_node_to_thread);
 
                 DBG_ASSERT(scheduler->internal_request_queue.empty());
-                if (assign_node_to_thread.size() == 0) {
+                if (assign_node_to_thread.empty()) {
                     // Case 1: worker finds that none of their parents need update
                     // Case 2: background done dealing root
                     // DBG_PRINT(std::cout << "BG: assign_node_to_thread.size() == 0" << std::endl;);

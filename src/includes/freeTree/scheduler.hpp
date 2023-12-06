@@ -157,8 +157,8 @@ namespace Tree {
                 DBG_PRINT(std::cout << "Scheduler get Terminate signal, will exit after current batch" << std::endl);
                 while (!request_queue.empty());
                 PrivateBackground::release_nodes(this);
-                
-                setTerminate(flag, true);
+
+                setTerminate(flag);
                 for (size_t i = 0; i < numWorker_ + 1; i ++) {
                     pthread_join(workers[i], NULL);
                 }
@@ -193,9 +193,8 @@ namespace Tree {
             }
 
             // static inline void setTerminate(std::atomic<int> &flag, bool terminate) {
-            static inline void setTerminate(int &flag, bool terminate) {
-                if (terminate) flag |= TERMINATE_FLAG;
-                else flag &= ~TERMINATE_FLAG;
+            static inline void setTerminate(int &flag) {
+                flag |= TERMINATE_FLAG;
             }
 
             // static inline void setStage(std::atomic<int> &flag, PalmStage stage) {

@@ -317,7 +317,7 @@ namespace Tree {
                      * NOTE: If is an internal node, we want to preserve the ordering relationship
                      * between keys and subtrees. Therefore the parent key is used.
                      * */
-                    right->keys.push_front(keyParentMove);
+                    right->keys.insert(right->keys.begin(), keyParentMove);
                     left->keys.pop_back();
 
                     right->children.push_front(left->children.back());
@@ -329,7 +329,7 @@ namespace Tree {
                      * NOTE: If is a leaf node, we want to preserve all keys in the leaf, so we will
                      * put sibling key into the node instead of the parent key.
                     */
-                    right->keys.push_front(keySiblingMove);
+                    right->keys.insert(right->keys.begin(), keySiblingMove);
                     left->keys.pop_back();
                 }
                 left->consolidateChild();
@@ -346,8 +346,8 @@ namespace Tree {
             while (moreHalfFull(right, order) && !isHalfFull(left, order)) {
                 T keyParentMove = parent->keys[index],
                   keySiblingMove = right->keys.front();
-                
-                right->keys.pop_front();
+
+                right->keys.erase(right->keys.begin());
                 if (left->isLeaf) {
                     /**
                      * Case 3b. Borrow from left where both are leaves
@@ -389,7 +389,7 @@ namespace Tree {
                 /**
                  * Case 3.a Merge with right where both nodes are internal nodes
                  * */
-                right->keys.push_front(parent->keys[index]);
+                right->keys.insert(right->keys.begin(), parent->keys[index]);
                 right->children.insert(
                     right->children.begin(), left->children.begin(), left->children.end()
                 );
@@ -497,7 +497,7 @@ namespace Tree {
             new_node->keys.insert(new_node->keys.begin(), child->keys.begin(), child->keys.begin() + numToSplitLeft);
             child->keys.erase(child->keys.begin(), child->keys.begin() + numToSplitLeft);
             parent->keys.insert(parent->keys.begin() + index, child->keys.front());
-            child->keys.pop_front();
+            child->keys.erase(child->keys.begin());
 
             new_node->children.insert(new_node->children.begin(), child->children.begin(), child->children.begin() + numToSplitLeft + 1);
             child->children.erase(child->children.begin(), child->children.begin() + numToSplitLeft + 1);
