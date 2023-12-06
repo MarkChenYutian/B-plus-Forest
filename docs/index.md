@@ -25,11 +25,16 @@ title: "15418 Final Project: B+ Forest"
     Based on the intel paper of PALM algorithm, we implemented the lock-free B+ tree.
 </div>
 <div style="flex: 1; padding: 1rem; min-width: 400px;" markdown=1>
-* 7th Dec, 2023 - Distributed B+ tree (OpenMPI Lazy-tree) implementation
 
-    Based on the OpenMPI, implement a distributed B+ tree, where each process own some nodes (with values in local memory) and contain some shadow-nodes (which are reference to other processes' tree nodes in other memory space).
+* ✅ **5th Dec, 2023 - Distributed B+ tree (OpenMPI) implementation**
 
-* 7th Dec, 2023 - Benchmark infrastructure (timing, statistics) implementation
+    Based on the OpenMPI, implement a distributed B+ tree, where each process own a separate, local (partial) version of B+ tree.
+
+* **7th Dec, 2023 - Optimizing Performance**
+
+    Improve the performance of existing implementations by fine-tunining the details of codebase and clean up (utilize modern C++ features).
+
+* **7th Dec, 2023 - Benchmark infrastructure (timing, statistics) implementation**
 
     Implement benchmark infrastructure (test-case generator, timing, performance evaluation, profiling, access pattern statistics, etc.) for all 5 different types of B+ tree implementations.
 
@@ -48,18 +53,28 @@ title: "15418 Final Project: B+ Forest"
 
 In this final project, we plan to implement a series of B+ trees, including the sequential version, coarse-grain lock version, fine-grain lock version, the lock-free version (PALM Tree), and a distributed version based on OpenMPI. We will then conduct a comprehensive benchmarking on the performance of each data structure.
 
-<img src="./assets/Trees.png" style="max-width:400px; width:40vw;"/>
+<img src="./assets/Trees.png" style="width: 100%;"/>
 
-**Current Progress** - Up to now, we have successfully implemented the sequential, lock-based parallel and lock-free parallel B+ trees and prepared some infrastructure for the future benchmarking work. <mark>Need further expansion</mark>
+> \* *These are only estimated speedup based on the existing literatures, we have not-yet conducted benchmarking*
+
+**Current Progress** - Up to now, we have implemented all 5 different versions of the B+ trees in the scope of this project: the sequential, coarse-grain lock, fine-grain lock, lock-free, and distributed B+ tree and have passed the correctness check.
 
 </div>
+
+<hr/>
 
 <div style="flex: 1; padding: 1rem; min-width: 400px;" markdown=1>
 
 ## Preliminary Results
 
-Will be here soon... <mark>Need further expansion</mark>
+We have conducted correctness test for all 5 different trees' implementation. The screenshot for the Sequential, Coarse grain lock, Fine grain lock, and Lock-free tree are shown below. We have not yet implemented a test engine for distributed tree.
 
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+<img src="./assets/SeqTreeCorrectness.png"/>
+<img src="./assets/CoarseCorrectness.png"/>
+<img src="./assets/FineCorrectness.png"/>
+<img src="./assets/FreeCorrectness.png"/>
+</div>
 </div>
 </div>
 <hr/>
@@ -119,15 +134,66 @@ We decided to conduct our experiments and development on Linux platform using C+
 2. ✅ Implement concurrent B+ tree by coarse grained lock
 3. ✅ Implement concurrent B+ tree by fine grained lock
 4. ✅ Implement lock free B+ tree
-5. ⏳ Implement distributed B+ tree via OpenMPI
+5. ✅ Implement distributed B+ tree via OpenMPI
 6. ⏳ Perform benchmark testing on Synthetic sequence of read/write to a randomly generated B+ tree under parallel accessing.
 7. ⏳ Analyze the benchmarking result, calculate speedup and other statistics 
 8. ⏳ Perform benchmark testing on Synthetic sequence of adversarial (worst-case) read/write to a manually-designed B+ tree under parallel accessing.
 
 </div>
 </div>
+<hr/>
 
+
+## Data Structure Design
+
+<div style="display: flex; flex-wrap: wrap">
+<div style="flex: 1; padding: 1rem; min-width: 400px;" markdown=1>
+
+### Coarse-grain B+ Tree
+
+<img src="./assets/CoarseGrainFig.png" style="width: 100%;"/>
+
+The coarse-grain B+ tree have a global `mutex` lock for the entire tree. Every time a thread calls the tree API, the thread will arbitrate for the ownership of `mutex` lock. If the thread did not acquire the lock, it will wait (and be de-scheduled by the OS).
+
+### Fine-grain B+ Tree
+
+<img src="./assets/FineGrainFig.png" style="width: 100%;"/>
+
+In the fine-grain B+ tree, each node have a local reader-writer lock (implemented by `std::shared_mutex`). When a thread calls read-only API (that is, the `get(T key)` method), a sequence of reader lock from root to leaf node will be acquired. 
+
+When a thread calls write API (that is, the `insert()` and `remove()` methods), the writer locks on the path from root to leaf will be acquired *if this option can potentially cause a split, borrow or merge in the current subtree*.
+
+This allows some thread to access subtree that are not subject to change (due to other threads' operations) and improve the parallelism of data structure.
+
+</div>
+
+<div style="flex: 1; padding: 1rem; min-width: 400px;" markdown=1>
+
+### Lock-free Algorithm (PALM Tree)
+
+The PALM Tree algorithm is a lock-free, asynchronous B+ tree algorithm proposed by Intel. The B+ tree process requests in batch using a group of worker thread and a single background (manager) thread.
+
+<img src="./assets/PALMTreeStateMachine.png" style="width: 100%;"/>
+
+The algorithm can be divided into 4 stages in the original paper, but when implementing, we divide the algorithm into 7 different states:
+
+1. **Collect State** - at this state, all the worker threads are *busy waiting* for the signal from background thread. The background thread will collect requests from the lock-free queue in `boost::lockfree` library.
+
+2. **Search State** - at this state, background thread will *busy wait* for the signal from worker threads. The worker threads will begin to search for the leaf correspond to each `Request` and store the leaf pointer.
+
+3. **Distribute State** - at this state, the worker threads will busy wait for background thread to collect leaf nodes searched and reduce all requests on same leaf to each worker.
+
+4. **Leaf Execute** - 
+
+{% include NotImplemented.html %}
+
+### Distributed B+ Tree
+
+{% include NotImplemented.html %}
+
+</div>
+</div>
 
 <hr/>
 
-> For historical archive version of this page, please refer to this page <a href="/15-418-Final-Project/pages/archive">Link</a>.
+<blockquote>For historical archive version of this page, please refer to this page <a href="/15-418-Final-Project/pages/archive">Link</a>.</blockquote>

@@ -96,7 +96,7 @@ namespace Tree {
         dq.retrieveLock(node);
 
         while (!node->isLeaf) {
-            if (node->numKeys() > (ORDER_ / 2)) {
+            if (moreHalfFull(node)) {
                 dq.releasePrevWriteLocks();
             }
             /** getGTKeyIdx will have index = 0 if node is dummy node */
@@ -296,12 +296,12 @@ namespace Tree {
 
     template <typename T>
     bool FineLockBPlusTree<T>::isHalfFull(FineNode<T>* node) {
-        return node->numKeys() >= (ORDER_ / 2);
+        return node->numKeys() >= ((ORDER_-1) / 2);
     }
 
     template <typename T>
     bool FineLockBPlusTree<T>::moreHalfFull(FineNode<T>* node) {
-        return node->numKeys() > (ORDER_ / 2);
+        return node->numKeys() > ((ORDER_-1) / 2);
     }
 
     template <typename T>
