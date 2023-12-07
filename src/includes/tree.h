@@ -9,7 +9,9 @@
 #include <memory>
 #include <optional>
 #include <cassert>
-#include <emmintrin.h>
+
+#include "utility/SIMDOptimizer.h"
+
 
 #ifdef DEBUG
 std::mutex print_mutex;
@@ -28,59 +30,20 @@ std::mutex print_mutex;
 
 #endif
 
-constexpr size_t simdWidth = sizeof(__m128i) / sizeof(int);
+
 
 namespace Tree {
-
-
     template <typename T>
     class ITree {
         public:
-            bool debug_checkIsValid(bool verbose);
-            int  size();
+        virtual bool debug_checkIsValid(bool verbose) = 0;
+        virtual int  size() = 0;
             
-            void insert(T key);
-            bool remove(T key);
-            void print();
-            std::optional<T> get(T key);
-            std::vector<T> toVec();
-    };
-
-    template <typename T>
-    struct EfficientKeyFinder {
-        static inline size_t getGtKeyIdxSpecialized(const std::vector<T> &keys, T key) {
-            size_t index = 0, numKey = keys.size();
-            while (index < numKey && keys[index] <= key) index ++;
-            return index;
-        }
-    };
-
-    template <>
-    struct EfficientKeyFinder<int> {
-        static inline size_t getGtKeyIdxSpecialized(const std::vector<int> &keys, int key) {
-            size_t index = 0;
-            size_t numKeys = keys.size();
-            __m128i keyVector = _mm_set1_epi32(key);
-
-            while (index + simdWidth < numKeys) {
-                __m128i dataVector = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&keys[index]));
-                __m128i cmpResult = _mm_cmpgt_epi32(dataVector, keyVector);
-                int mask = _mm_movemask_epi8(cmpResult);
-                if (mask != 0) {
-                    // Find the exact element using scalar comparison
-                    for (size_t i = 0; i < simdWidth; ++i) {
-                        if (keys[index + i] > key) {
-                            return index + i;
-                        }
-                    }
-                }
-                index += simdWidth;
-            }
-
-            // Handle any remaining elements
-            while (index < numKeys && keys[index] <= key) index++;
-            return index;
-        }
+        virtual void insert(T key) = 0;
+        virtual bool remove(T key) = 0;
+        virtual void print() = 0;
+        virtual std::optional<T> get(T key) = 0;
+        virtual std::vector<T> toVec() = 0;
     };
 
     template <typename T>
@@ -152,7 +115,7 @@ namespace Tree {
          * **out-of-bound** index!
          */
         inline size_t getGtKeyIdx(T key) {
-            return EfficientKeyFinder<T>::getGtKeyIdxSpecialized(keys, key);
+            return SIMDOptimizer<T>::getGtKeyIdxSpecialized(keys, key);
         }
     };
 
@@ -184,64 +147,7 @@ namespace Tree {
         inline size_t numKeys()  {return keys.size();}
         inline size_t numChild() {return children.size();}
         inline size_t getGtKeyIdx(T key) {
-            return EfficientKeyFinder<T>::getGtKeyIdxSpecialized(keys, key);
-        }
-    };
-
-    /**
-     * NOTE: A data structure used to keep track of the locks retrieved by
-     * a single thread.
-     * **Only used as a private variable within each thread, never share to others!**
-     */
-    constexpr size_t LockQueueMaxSize = 20;
-
-    template <typename T>
-    struct LockDeque {
-        bool isShared;
-        FineNode<T> *nodes[LockQueueMaxSize];
-        size_t start = 0, end = 0;
-
-        LockDeque(bool isShared = false): isShared(isShared){}
-        void retrieveLock(FineNode<T> *ptr) {
-            if (isShared) ptr->latch.lock_shared();
-            else ptr->latch.lock();
-            nodes[end] = ptr;
-            end ++;
-        }
-        bool isLocked(FineNode<T> *ptr) {
-            for (size_t idx = start; idx < end; idx ++) {
-                if (nodes[idx] == ptr) return true;
-            };
-            return false;
-        }
-        void releaseAll() {
-            while (start != end) {
-                if (nodes[start] != nullptr) {
-                    if (isShared) nodes[start]->latch.unlock_shared();
-                    else nodes[start]->latch.unlock();
-                }
-                start ++;
-            }
-        }
-        void releasePrev() {
-            while ((end - start) > 1) {
-                if (nodes[start] != nullptr) {
-                    if (isShared) nodes[start]->latch.unlock_shared();
-                    else nodes[start]->latch.unlock();
-                }
-                start++;
-            }
-        }
-        void popAndDelete(FineNode<T> *ptr) {
-            DBG_ASSERT(!isShared);
-            DBG_ASSERT(isLocked(ptr->parent));
-            for (size_t idx = start; idx < end; idx ++) {
-                if (nodes[idx] == ptr) {
-                    nodes[idx] = nullptr;
-                    break;
-                }
-            }
-            delete ptr;
+            return SIMDOptimizer<T>::getGtKeyIdxSpecialized(keys, key);
         }
     };
 
@@ -253,7 +159,7 @@ namespace Tree {
             int size_;
 
         public:
-            SeqBPlusTree(int order = 3);
+            explicit SeqBPlusTree(int order = 3);
             ~SeqBPlusTree();
 
             // Getter
@@ -288,7 +194,7 @@ namespace Tree {
             std::mutex lock;
             SeqBPlusTree<T> tree;
         public:
-            CoarseLockBPlusTree(int order = 3);
+            explicit CoarseLockBPlusTree(int order = 3);
             ~CoarseLockBPlusTree();
             bool debug_checkIsValid(bool verbose);
             int  size();
@@ -298,6 +204,26 @@ namespace Tree {
             void print();
             std::optional<T> get(T key);
             std::vector<T> toVec();
+    };
+
+    /*
+     * To maximize the performance of fine grain lock algorithm, we use a fixed size array to store
+     * lock pointers. 32 seems to be a very descent number here since it is hard to have tree with (order)^32 elements
+     * where order >= 3.
+     */
+    constexpr size_t LockQueueMaxSize = 32;
+    template <typename T>
+    struct LockManager {
+        bool isShared;
+        FineNode<T> *nodes[LockQueueMaxSize];
+        size_t start = 0, end = 0;
+
+        explicit LockManager(bool isShared = false): isShared(isShared){}
+        void retrieveLock(FineNode<T> *ptr);
+        bool isLocked(FineNode<T> *ptr);
+        void releaseAll();
+        void releasePrev();
+        void popAndDelete(FineNode<T> *ptr);
     };
 
     template<typename T>
@@ -322,9 +248,9 @@ namespace Tree {
         
         private:
             // Private helper functions
-            FineNode<T>* findLeafNodeInsert(FineNode<T>* node, T key, LockDeque<T> &dq);
-            FineNode<T>* findLeafNodeDelete(FineNode<T>* node, T key, LockDeque<T> &dq);
-            FineNode<T>* findLeafNodeRead(FineNode<T>* node, T key, LockDeque<T> &dq);
+            FineNode<T>* findLeafNodeInsert(FineNode<T>* node, T key, LockManager<T> &dq);
+            FineNode<T>* findLeafNodeDelete(FineNode<T>* node, T key, LockManager<T> &dq);
+            FineNode<T>* findLeafNodeRead(FineNode<T>* node, T key, LockManager<T> &dq);
 
             void splitNode(FineNode<T>* node, T key);
             void insertKey(FineNode<T>* node, T key);
@@ -333,7 +259,7 @@ namespace Tree {
             bool isHalfFull(FineNode<T>* node);
             bool moreHalfFull(FineNode<T>* node);
 
-            void removeBorrow(FineNode<T>* node, LockDeque<T> &dq);
-            void removeMerge(FineNode<T>* node, LockDeque<T> &dq);
+            void removeBorrow(FineNode<T>* node, LockManager<T> &dq);
+            void removeMerge(FineNode<T>* node, LockManager<T> &dq);
     };
 };

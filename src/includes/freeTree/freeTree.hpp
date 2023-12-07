@@ -1,6 +1,6 @@
 #pragma once
 #include "../tree.h"
-#include "timing.h"
+#include "utility/timing.h"
 #include "freeTree/scheduler.hpp"
 #include "freeTree/background.hpp"
 #include "freeTree/worker.hpp"
@@ -54,7 +54,7 @@ namespace Tree {
              * NOTE: These are all async APIs since the lock-free B+ tree
              * will execute all the requests in an asynchronous batch operation
              */
-            explicit FreeBPlusTree(int order, int numWorker=2):
+            explicit FreeBPlusTree(int order, int numWorker=4):
                 ORDER_(order), size_(0), rootPtr(FreeNode<T>(true))
             {
                 scheduler_ = new Scheduler(numWorker, &rootPtr, order);

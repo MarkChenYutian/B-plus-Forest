@@ -40,7 +40,7 @@ namespace Tree {
 
     template <typename T>
     int CoarseLockBPlusTree<T>::size() {
-        return size;
+        return tree.size();
     }
 
     template <typename T>

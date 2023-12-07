@@ -12,9 +12,9 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/wait.h>
-#include <stdio.h>
+#include <cstdio>
 #include "tree.h"
-#include "timing.h"
+#include "utility/timing.h"
 
 namespace Engine {
 
@@ -22,6 +22,7 @@ struct EngineConfig {
     int order;
     int numProcess;
     std::vector<std::string> paths;
+    std::optional<std::pair<int, int>> prefill = std::nullopt;
 };
 
 template <template <typename> class T>
@@ -34,7 +35,7 @@ class IEngine {
             TestOp op;
             std::optional<int> expect;
 
-            TestEntry(const std::string &line);
+            explicit TestEntry(const std::string &line);
             bool isBarrier() {return op == TestOp::BARRIER;};
             void print();
         };
@@ -50,22 +51,22 @@ class IEngine {
         };
     
     public:
-        int order;
-        int numProcess;
-        pthread_barrier_t barrierA;
-        pthread_barrier_t barrierB;
+        int order{};
+        int numProcess{};
+        pthread_barrier_t barrierA{};
+        pthread_barrier_t barrierB{};
         std::vector<std::string> paths;
         std::vector<TestEntry> currCase;
     
     public:
-        void Run();
+        [[maybe_unused]] virtual void Run() = 0;
         void loadTestCase(const std::string &filePath);
 };
 
 template <template <typename> class T>
 class SeqEngine : public IEngine<T> {
     public:
-        SeqEngine(const EngineConfig &cfg){
+        explicit SeqEngine(const EngineConfig &cfg){
             this->paths = cfg.paths;
             this->order = cfg.order;
             this->numProcess = cfg.numProcess;
@@ -198,7 +199,7 @@ class ThreadEngine : public IEngine<T> {
             if (isConcurrentThread && !entry.isBarrier() && 
                 (entry.value % warg->threadNum != thread_id)
             ) continue;
-            
+
             bool hasKey;
             std::optional<int> key;
 
@@ -282,13 +283,47 @@ template <template <typename> class T>
 class BenchmarkEngine : public IEngine<T> {
 public:
     int repeatNum{};
+    std::optional<std::pair<int, int>> prefill;
 
 public:
     BenchmarkEngine(const EngineConfig &cfg) {
         this->order = cfg.order;
         this->paths = cfg.paths;
         this->numProcess = cfg.numProcess;
-        this->repeatNum = 1;
+        this->repeatNum = 3;
+        this->prefill = cfg.prefill;
+    }
+
+    void inline Prefill(T<int> &tree, int start, int end) {
+        for (int elem = start; elem < end; elem ++) {
+            tree.insert(elem);
+        }
+    }
+
+    void inline ActualRun(T<int> &concurrent_tree, int threadNum, Timer &caseTimer, double &run_seconds) {
+        typename IEngine<T>::WorkerArgs args[threadNum];
+        pthread_t threads[threadNum];
+
+        for (int threadId = 0; threadId < threadNum; threadId ++) {
+            args[threadId].concurrent_tree = &concurrent_tree;
+            args[threadId].currCase  = &this->currCase;
+            args[threadId].threadID  = threadId;
+            args[threadId].threadNum = threadNum;
+        }
+
+        caseTimer.reset();
+        for (int threadId = 0; threadId < threadNum; threadId ++) {
+            pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+        }
+
+        for (int i = 0; i < threadNum; i++){
+            if (pthread_join(threads[i], NULL) != 0) {
+                std::cerr << "Error joining thread " << i << std::endl;
+                exit(1);
+            }
+        }
+
+        run_seconds += caseTimer.elapsed();
     }
 
     void Run() {
@@ -305,29 +340,13 @@ public:
                 auto concurrent_tree = T<int>(this->order);
                 build_seconds += caseTimer.elapsed();
 
-                typename IEngine<T>::WorkerArgs args[threadNum];
-                pthread_t threads[threadNum];
-
-                for (int threadId = 0; threadId < threadNum; threadId ++) {
-                    args[threadId].concurrent_tree = &concurrent_tree;
-                    args[threadId].currCase  = &this->currCase;
-                    args[threadId].threadID  = threadId;
-                    args[threadId].threadNum = threadNum;
-                }
-                
-                caseTimer.reset();
-                for (int threadId = 0; threadId < threadNum; threadId ++) {
-                    pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+                // If have prefill, process the prefills first.
+                if (prefill.has_value()) {
+                    int start = prefill->first, end = prefill->second;
+                    Prefill(concurrent_tree, start, end);
                 }
 
-                for (int i = 0; i < threadNum; i++){
-                    if (pthread_join(threads[i], NULL) != 0) {
-                        std::cerr << "Error joining thread " << i << std::endl;
-                        exit(1);
-                    }
-                }
-
-                run_seconds += caseTimer.elapsed();
+                ActualRun(concurrent_tree, threadNum, caseTimer, run_seconds);
             }
 
             run_seconds = run_seconds / repeatNum;

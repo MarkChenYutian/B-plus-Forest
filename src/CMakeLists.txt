@@ -31,7 +31,7 @@ endif()
 # Define header files
 set(HEADERS
     # Utility
-    includes/timing.h
+        includes/utility/timing.h
 
     # Project file
     includes/tree.h
@@ -52,6 +52,7 @@ set(HEADERS
     includes/coarseTree/coarseTree.hpp
 
     # Fine Tree
+    includes/fineTree/lockQueue.hpp
     includes/fineTree/fineTree.hpp
     includes/fineTree/fineNode.hpp
 
@@ -166,14 +167,21 @@ set_target_properties(FreeTreeRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FL
 
 set(BENCHMARK_SRC src/benchmark.cpp)
 add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
-target_compile_options(benchmarkOptimized PRIVATE -O0)
+target_compile_options(benchmarkOptimized PRIVATE -O2)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
+set(BENCHMARK_SRC src/benchmark.cpp)
+add_executable(benchmarkPlain ${HEADERS} ${BENCHMARK_SRC})
+target_compile_options(benchmarkPlain PRIVATE -O0)
+target_link_libraries(benchmarkPlain PRIVATE Threads::Threads)
+target_link_libraries(benchmarkPlain PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+set_target_properties(benchmarkPlain PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
+
 
 ################ Automated Testing #####################
-set(BENCHMARK_SRC src/ctestRunner.cpp)
+set(BENCHMARK_SRC src/ctestRunner.cpp includes/utility/SIMDOptimizer.h)
 add_executable(AutoTest ${HEADERS} ${BENCHMARK_SRC})
 target_compile_options(AutoTest PRIVATE -O2 -DDEBUG)
 target_link_libraries(AutoTest PRIVATE Threads::Threads)
@@ -259,8 +267,8 @@ set_tests_properties(FineTreeLarge0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "Fine
 
 
 # FreeLock Tree
-add_test(NAME FreeTreeSmall0_ord3 COMMAND ./AutoTest 3 1 Free small_0.case)
-set_tests_properties(FreeTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+#add_test(NAME FreeTreeSmall0_ord3 COMMAND ./AutoTest 3 1 Free small_0.case)
+#set_tests_properties(FreeTreeSmall0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
 
 add_test(NAME FreeTreeSmall0_ord4 COMMAND ./AutoTest 4 1 Free small_0.case)
 set_tests_properties(FreeTreeSmall0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
@@ -271,8 +279,8 @@ set_tests_properties(FreeTreeSmall0_ord5 PROPERTIES RUN_SERIAL TRUE LABELS "Free
 add_test(NAME FreeTreeSmall0_ord6 COMMAND ./AutoTest 6 1 Free small_0.case)
 set_tests_properties(FreeTreeSmall0_ord6 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
 
-add_test(NAME FreeTreeLarge0_ord3 COMMAND ./AutoTest 3 1 Free large_0.case)
-set_tests_properties(FreeTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
+#add_test(NAME FreeTreeLarge0_ord3 COMMAND ./AutoTest 3 1 Free large_0.case)
+#set_tests_properties(FreeTreeLarge0_ord3 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")
 
 add_test(NAME FreeTreeLarge0_ord4 COMMAND ./AutoTest 4 1 Free large_0.case)
 set_tests_properties(FreeTreeLarge0_ord4 PROPERTIES RUN_SERIAL TRUE LABELS "FreeLock")

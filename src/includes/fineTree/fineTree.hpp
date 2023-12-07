@@ -4,6 +4,7 @@
 #include <cassert>
 #include <optional>
 #include "tree.h"
+#include "fineTree/lockQueue.hpp"
 #include "fineTree/fineNode.hpp"
 
 namespace Tree {
@@ -29,7 +30,7 @@ namespace Tree {
     void FineLockBPlusTree<T>::insert(T key) {
         size_ ++;
 
-        LockDeque<T> dq = LockDeque<T>(false);
+        LockManager<T> dq = LockManager<T>(false);
         FineNode<T> *node = findLeafNodeInsert(&rootPtr, key, dq);
         DBG_ASSERT(dq.isLocked(node));
 
@@ -53,7 +54,7 @@ namespace Tree {
     }
 
     template <typename T>
-    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(FineNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeRead(FineNode<T>* node, T key, LockManager<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
@@ -71,7 +72,7 @@ namespace Tree {
     }
 
     template <typename T>
-    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(FineNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeInsert(FineNode<T>* node, T key, LockManager<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
@@ -92,7 +93,7 @@ namespace Tree {
     }
 
     template <typename T>
-    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(FineNode<T>* node, T key, LockDeque<T> &dq) {
+    FineNode<T>* FineLockBPlusTree<T>::findLeafNodeDelete(FineNode<T>* node, T key, LockManager<T> &dq) {
         DBG_ASSERT(node == &rootPtr);
         dq.retrieveLock(node);
 
@@ -272,7 +273,7 @@ namespace Tree {
 
     template <typename T>
     std::optional<T> FineLockBPlusTree<T>::get(T key) {
-        LockDeque<T> dq = LockDeque<T>(true);
+        LockManager<T> dq = LockManager<T>(true);
         FineNode<T> *node = findLeafNodeRead(&rootPtr, key, dq);
 
         DBG_ASSERT(dq.isLocked(node));
@@ -283,6 +284,11 @@ namespace Tree {
         }
 
         DBG_ASSERT(node != &rootPtr);
+//        size_t gtIdx = SIMDOptimizer<T>::getGtKeyIdxSpecialized(node->keys, key);
+//        if (gtIdx > 0 && node->keys[gtIdx - 1] == key) {
+//            dq.releaseAll();
+//            return key;
+//        }
         auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
         int index = std::distance(node->keys.begin(), it);
 
@@ -307,7 +313,7 @@ namespace Tree {
 
     template <typename T>
     bool FineLockBPlusTree<T>::remove(T key) {
-        LockDeque<T> dq = LockDeque<T>(false);
+        LockManager<T> dq = LockManager<T>(false);
         FineNode<T>* node = findLeafNodeDelete(&rootPtr, key, dq);
         DBG_ASSERT(dq.isLocked(node));
         /**
@@ -351,7 +357,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeBorrow(FineNode<T> *node, LockDeque<T> &dq) {
+    void FineLockBPlusTree<T>::removeBorrow(FineNode<T> *node, LockManager<T> &dq) {
         // Edge case: root has no sibling node to borrow with
         if (node->parent == &rootPtr) {
             if (node->numKeys() == 0) {
@@ -469,7 +475,7 @@ namespace Tree {
     }
 
     template <typename T>
-    void FineLockBPlusTree<T>::removeMerge(FineNode<T>* node, LockDeque<T> &dq) {
+    void FineLockBPlusTree<T>::removeMerge(FineNode<T>* node, LockManager<T> &dq) {
         bool leftMergeToRight;
         FineNode<T> *leftNode, *rightNode, *parent;
 
