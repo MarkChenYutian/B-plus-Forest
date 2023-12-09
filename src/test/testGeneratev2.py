@@ -55,15 +55,15 @@ class CaseGenerator:
         print(f"Finish generate:\t{self.fileName}")
 
 
-# for i in range(0, 10):
-#     CaseGenerator(1000, 10, 50, f"small_{i}.case", [.5, .2, .2, .1]).generate()
-#     CaseGenerator(100000, 1000, 5000, f"large_{i}.case", [.6, .29, .1, .01]).generate()
+for i in range(0, 10):
+    CaseGenerator(1000, 10, 50, f"small_{i}.case", [.5, .2, .2, .1]).generate()
+    CaseGenerator(100000, 1000, 5000, f"large_{i}.case", [.6, .29, .1, .01]).generate()
 
-# for i in range(3):
-#     CaseGenerator(10000, 0, 10000, f"IAndG_{i}.case", [.8, 0., .19, .01]).generate()
+for i in range(3):
+    CaseGenerator(10000, 0, 10000, f"IAndG_{i}.case", [.8, 0., .19, .01]).generate()
 
-# for i in range(3):
-#     CaseGenerator(1000000, 0, 1000000, f"mega_{i}.case", [.05, .05, .89, .01]).generate()
+for i in range(3):
+    CaseGenerator(1000000, 0, 1000000, f"mega_{i}.case", [.05, .05, .89, .01]).generate()
 
 prefiled = {_ for _ in range(100000, 900000)}
 for i in range(0, 3):

@@ -7,7 +7,7 @@ project(BForest)
 include(CTest)
 
 # Specify the C++ standard (e.g., C++17)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(ENV{TSAN_OPTIONS} "second_deadlock_stack=1")
 
 # Get required packages
@@ -136,7 +136,7 @@ set(PALM_TEST_SRC src/freeTest.cpp)
 # PalmTree Test build
 # Enable AddressSanitizer (ASan), UndefinedBehaviorSanitizer (UBSan), and LeakSanitizer (LSan)
 add_executable(FreeTreeDebug ${HEADERS} ${PALM_TEST_SRC})
-target_compile_options(FreeTreeDebug PRIVATE -fsanitize=undefined,address,leak -fno-omit-frame-pointer -g -DDEBUG)
+target_compile_options(FreeTreeDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(FreeTreeDebug PRIVATE Threads::Threads)
 target_link_libraries(FreeTreeDebug PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 #target_link_libraries(FreeTreeDebug PUBLIC OpenMP::OpenMP_CXX)

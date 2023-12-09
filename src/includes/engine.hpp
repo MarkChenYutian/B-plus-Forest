@@ -48,15 +48,13 @@ class IEngine {
             std::vector<TestEntry> *currCase;
             int threadID;
             int threadNum;
-            pthread_barrier_t *barrierA;
-            pthread_barrier_t *barrierB;
+            Barrier *barrierA;
+            Barrier *barrierB;
         };
     
     public:
         int order{};
         int numProcess{};
-        pthread_barrier_t barrierA{};
-        pthread_barrier_t barrierB{};
         std::vector<std::string> paths;
         std::vector<TestEntry> currCase;
     
@@ -108,7 +106,10 @@ class SeqEngine : public IEngine<T> {
                     if (key.has_value() != entry.expect.has_value()) return false;
                     if (key.has_value() && (key.value() != entry.expect.value())) return false;
                     break;
+                default:
+                    break;
                 }
+                
             }
             return true;
         }
@@ -116,9 +117,15 @@ class SeqEngine : public IEngine<T> {
 
 template <template <typename> class T>
 class ThreadEngine : public IEngine<T> {
+    private:
+        Barrier barrierA;
+        Barrier barrierB;
+
     public:
 
-    ThreadEngine(const EngineConfig &cfg) {
+    ThreadEngine(const EngineConfig &cfg):
+        barrierA(cfg.numProcess + 2), barrierB(cfg.numProcess + 2) 
+    {
         this->paths = cfg.paths;
         this->order = cfg.order;
         this->numProcess = cfg.numProcess;
@@ -147,8 +154,8 @@ class ThreadEngine : public IEngine<T> {
                 }
 
                 // initialize the barrier with the number of threads
-                pthread_barrier_init(&this->barrierA, NULL, threadNum + 2);
-                pthread_barrier_init(&this->barrierB, NULL, threadNum + 2);
+                // pthread_barrier_init(&this->barrierA, NULL, threadNum + 2);
+                // pthread_barrier_init(&this->barrierB, NULL, threadNum + 2);
                 
                 for (int threadId = 0; threadId < threadNum + 2; threadId ++) {
                     if (threadId < threadNum + 1) {
@@ -169,8 +176,8 @@ class ThreadEngine : public IEngine<T> {
                 }
 
                 // Destroy the barrier, condition, mutex
-                pthread_barrier_destroy(&this->barrierA);
-                pthread_barrier_destroy(&this->barrierB);
+                // pthread_barrier_destroy(&this->barrierA);
+                // pthread_barrier_destroy(&this->barrierB);
 
                 bool pass = concurrent_tree.debug_checkIsValid(false);
                 if (pass) std::cout << "\r\033[1;32mPASS Case " << i << " " << testCase << "\033[0m" << std::endl;
@@ -221,8 +228,10 @@ class ThreadEngine : public IEngine<T> {
                 break;
             
             case IEngine<T>::TestOp::BARRIER:
-                pthread_barrier_wait(warg->barrierA);
-                pthread_barrier_wait(warg->barrierB);
+                warg->barrierA->wait();
+                warg->barrierB->wait();
+                // pthread_barrier_wait(warg->barrierA);
+                // pthread_barrier_wait(warg->barrierB);
             }
         }
         return nullptr;
@@ -249,9 +258,11 @@ class ThreadEngine : public IEngine<T> {
                 key = concurrent_tree->get(entry.value);
                 break;
             case IEngine<T>::TestOp::BARRIER:
-                pthread_barrier_wait(warg->barrierA);
+                warg->barrierA->wait();
+                // pthread_barrier_wait(warg->barrierA);
                 compare(concurrent_tree, seq_tree);
-                pthread_barrier_wait(warg->barrierB);
+                warg->barrierB->wait();
+                // pthread_barrier_wait(warg->barrierB);
                 break;
             default:
                 break;
