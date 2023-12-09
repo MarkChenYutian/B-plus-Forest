@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     else assert(false);
 
     std::vector<std::string> Cases = {baseDir + caseName};
-    Engine::EngineConfig config {order, numThread, Cases};
+    Engine::EngineConfig config {order, numThread, 1, Cases};
     MetaEngine(type, "", Cases, config);
     return 0;
 }

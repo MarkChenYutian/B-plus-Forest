@@ -5,7 +5,6 @@
 #include "coarseTree/coarseTree.hpp"
 #include "fineTree/fineNode.hpp"
 #include "fineTree/fineTree.hpp"
-#include "freeTree/freeNode.hpp"
 #include "freeTree/freeTree.hpp"
 
 enum TreeType {Sequential, CoarseGrain, FineGrain, LockFree, Distributed};
@@ -39,16 +38,16 @@ int main() {
         Cases.push_back(s);
     }
 
-    Engine::EngineConfig sequentialCfg {4, 1, 1, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig parallelx2Cfg {4, 2, 1, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig parallelx4Cfg {4, 4, 1, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig sequentialCfg {5, 1, 1, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig parallelx2Cfg {5, 2, 1, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig parallelx4Cfg {5, 4, 1, Cases, std::make_pair(100000, 900000)};
 
-    Engine::EngineConfig workerx2Cfg {4, 1, 2, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig workerx4Cfg {4, 1, 4, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig workerx2Cfg {5, 1, 2, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig workerx4Cfg {5, 1, 4, Cases, std::make_pair(100000, 900000)};
 
      MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
-     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
-     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
+//     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
+//     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
      MetaEngine(TreeType::FineGrain  , "FineGrain x1", Cases, sequentialCfg);
      MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
      MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);

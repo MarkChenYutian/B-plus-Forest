@@ -15,7 +15,7 @@ int main() {
     }
 
     {
-        Engine::EngineConfig cfg {5, 2, Cases};
+        Engine::EngineConfig cfg {5, 2, 1, Cases};
         auto runner = Engine::ThreadEngine<Tree::CoarseLockBPlusTree>(cfg);
         runner.Run();
     }

@@ -18,7 +18,7 @@ int main() {
 //        Cases.push_back(s);
 //    }
     {
-        Engine::EngineConfig cfg {5, 1, Cases};
+        Engine::EngineConfig cfg {5, 1, 1, Cases};
         auto runner = Engine::ThreadEngine<Tree::FineLockBPlusTree>(cfg);
         runner.Run();
     }
