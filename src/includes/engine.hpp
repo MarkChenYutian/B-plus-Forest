@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <unistd.h>
 #include <pthread.h>
+#include <iomanip>
 #include <sys/wait.h>
 #include <cstdio>
 #include "tree.h"
@@ -21,6 +22,7 @@ namespace Engine {
 struct EngineConfig {
     int order;
     int numProcess;
+    int numWorker;
     std::vector<std::string> paths;
     std::optional<std::pair<int, int>> prefill = std::nullopt;
 };
@@ -280,9 +282,33 @@ class ThreadEngine : public IEngine<T> {
 };
 
 template <template <typename> class T>
+class RunnerInitSpecialization {
+public:
+    static T<int>* BuildTree(int order, int numWorker) {
+        auto tree_alloc = new T<int>(order);
+        return tree_alloc;
+    }
+};
+
+/**
+ * We use explicit specialization in this case since among all trees, the only special one is the FreeBPlusTree
+ * which requires one more argument to pass the numWorker used by the scheduler.
+ */
+template <>
+class RunnerInitSpecialization<Tree::FreeBPlusTree> {
+public:
+    static Tree::FreeBPlusTree<int> *BuildTree(int order, int numWorker) {
+        Tree::FreeBPlusTree<int> *tree_alloc = new Tree::FreeBPlusTree<int>(order, numWorker);
+        return tree_alloc;
+    }
+};
+
+
+template <template <typename> class T>
 class BenchmarkEngine : public IEngine<T> {
 public:
     int repeatNum{};
+    int numWorker{};
     std::optional<std::pair<int, int>> prefill;
 
 public:
@@ -290,40 +316,15 @@ public:
         this->order = cfg.order;
         this->paths = cfg.paths;
         this->numProcess = cfg.numProcess;
-        this->repeatNum = 3;
+        this->repeatNum = 1;
         this->prefill = cfg.prefill;
+        this->numWorker = cfg.numWorker;
     }
 
-    void inline Prefill(T<int> &tree, int start, int end) {
+    void inline Prefill(T<int> *tree, int start, int end) {
         for (int elem = start; elem < end; elem ++) {
-            tree.insert(elem);
+            tree->insert(elem);
         }
-    }
-
-    void inline ActualRun(T<int> &concurrent_tree, int threadNum, Timer &caseTimer, double &run_seconds) {
-        typename IEngine<T>::WorkerArgs args[threadNum];
-        pthread_t threads[threadNum];
-
-        for (int threadId = 0; threadId < threadNum; threadId ++) {
-            args[threadId].concurrent_tree = &concurrent_tree;
-            args[threadId].currCase  = &this->currCase;
-            args[threadId].threadID  = threadId;
-            args[threadId].threadNum = threadNum;
-        }
-
-        caseTimer.reset();
-        for (int threadId = 0; threadId < threadNum; threadId ++) {
-            pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
-        }
-
-        for (int i = 0; i < threadNum; i++){
-            if (pthread_join(threads[i], NULL) != 0) {
-                std::cerr << "Error joining thread " << i << std::endl;
-                exit(1);
-            }
-        }
-
-        run_seconds += caseTimer.elapsed();
     }
 
     void Run() {
@@ -333,11 +334,11 @@ public:
             auto testCase = this->paths[i];
             IEngine<T>::loadTestCase(testCase);
 
-            double run_seconds = 0.0f, build_seconds = 0.0f;
+            double run_seconds = 0.0f, build_seconds = 0.0f, del_seconds = 0.0f;
             
             for (int repeat = 0; repeat < repeatNum; repeat ++) {
                 Timer caseTimer;
-                auto concurrent_tree = T<int>(this->order);
+                T<int> *concurrent_tree = RunnerInitSpecialization<T>::BuildTree(this->order, this->numWorker);
                 build_seconds += caseTimer.elapsed();
 
                 // If have prefill, process the prefills first.
@@ -346,28 +347,69 @@ public:
                     Prefill(concurrent_tree, start, end);
                 }
 
-                ActualRun(concurrent_tree, threadNum, caseTimer, run_seconds);
+                caseTimer.reset();
+
+                typename IEngine<T>::WorkerArgs args[threadNum];
+                pthread_t threads[threadNum];
+
+                for (int threadId = 0; threadId < threadNum; threadId ++) {
+                    args[threadId].concurrent_tree = concurrent_tree;
+                    args[threadId].currCase  = &this->currCase;
+                    args[threadId].threadID  = threadId;
+                    args[threadId].threadNum = threadNum;
+                }
+
+                caseTimer.reset();
+                for (int threadId = 0; threadId < threadNum; threadId ++) {
+                    pthread_create(&threads[threadId], NULL, runTestCase, &args[threadId]);
+                }
+
+                for (int i = 0; i < threadNum; i++){
+                    if (pthread_join(threads[i], NULL) != 0) {
+                        std::cerr << "Error joining thread " << i << std::endl;
+                        exit(1);
+                    }
+                }
+
+                run_seconds += caseTimer.elapsed();
+
+                caseTimer.reset();
+                delete concurrent_tree;
+                del_seconds += caseTimer.elapsed();
             }
 
             run_seconds = run_seconds / repeatNum;
             build_seconds = build_seconds / repeatNum;
+            del_seconds = del_seconds / repeatNum;
+
             float estimated_qps = static_cast<float>(this->currCase.size()) / run_seconds / 1000000.0f;
             average_qps += estimated_qps;
 
             std::cout << "\r\033[1;32mCase " << i << "\t " << testCase << "\033[0m" << "\t";
-            double run_ms = run_seconds * 1000, build_ms = build_seconds * 1000;
-            std::cout << "\tBenchmark: " << 
-                roundFloat(estimated_qps, 4) << "MQPS\t in " << 
-                roundFloat(run_ms       , 4) << "ms, \t prep in " << 
-                roundFloat(build_ms     , 4) << "ms" << std::endl;
+            double run_ms = run_seconds * 1000,
+                   build_ms = build_seconds * 1000,
+                   del_ms = del_seconds * 1000;
+
+            std::cout << "\tBenchmark: " <<
+            toFixedLenStr(estimated_qps, 4) << "MQPS in " <<
+            toFixedLenStr(run_ms       , 4) << "ms, prep in " <<
+            toFixedLenStr(build_ms     , 4) << "ms, del in  " <<
+            toFixedLenStr(del_ms       , 4) << std::endl;
         }
-        std::cout << "Average MQPS:" << roundFloat(average_qps / this->paths.size(), 5) << std::endl;
+        std::cout << "Average MQPS:" << toFixedLenStr(average_qps / this->paths.size(), 5) << std::endl;
     }
 
 private:
-    float roundFloat(float number, int decimalPlaces) {
-        float scale = std::pow(10.0f, decimalPlaces);
-        return std::round(number * scale) / scale;
+    std::string toFixedLenStr(float x, int n) {
+        // Convert float to string with desired number of decimal places
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(n) << x;
+        std::string str = ss.str();
+        // Pad with zeros if necessary
+        if (str.length() < n + 3) {
+            str += std::string(n + 3 - str.length(), '0');
+        }
+        return str;
     }
 
     static void *runTestCase(void* arg) {

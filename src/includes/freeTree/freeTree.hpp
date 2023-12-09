@@ -44,56 +44,45 @@
 ///////////////////////////////
 
 namespace Tree {
+    /**
+     * NOTE: These are all async APIs since the lock-free B+ tree
+     * will execute all the requests in an asynchronous batch operation
+     */
     template <typename T>
-    class Scheduler;
+    FreeBPlusTree<T>::FreeBPlusTree(int order, int numWorker):
+            ORDER_(order), size_(0), rootPtr(FreeNode<T>(true))
+    {
+        scheduler_ = new Scheduler(numWorker, &rootPtr, order);
+    }
+
 
     template <typename T>
-    class FreeBPlusTree {
-        public:
-            /**
-             * NOTE: These are all async APIs since the lock-free B+ tree
-             * will execute all the requests in an asynchronous batch operation
-             */
-            explicit FreeBPlusTree(int order, int numWorker=4):
-                ORDER_(order), size_(0), rootPtr(FreeNode<T>(true))
-            {
-                scheduler_ = new Scheduler(numWorker, &rootPtr, order);
-            }
+    FreeBPlusTree<T>::~FreeBPlusTree() {
+        scheduler_->waitToExit();
+        delete scheduler_;
+#ifdef DEBUG
+        DBG_PRINT(std::cout << "Really Exited" << std::endl;);
+        if (!rootPtr.isLeaf) {
+            assert(rootPtr.children[0]->debug_checkChildCnt(ORDER_, true));
+            assert(rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt));
+            assert(rootPtr.children[0]->debug_checkParentPointers());
+        }
+#endif
+        if (!rootPtr.isLeaf) rootPtr.children[0]->releaseAll();
+    }
 
+    template <typename T>
+    void FreeBPlusTree<T>::insert(T key) {
+        scheduler_->submit_request({Scheduler<T>::TreeOp::INSERT, key});
+    }
 
-            ~FreeBPlusTree() {
-                scheduler_->waitToExit();
-                delete scheduler_;
-                
-                DBG_PRINT(std::cout << "Really Exited" << std::endl;);
+    template <typename T>
+    void FreeBPlusTree<T>::remove(T key) {
+        scheduler_->submit_request({Scheduler<T>::TreeOp::DELETE, key});
+    }
 
-                #ifdef DEBUG
-                if (!rootPtr.isLeaf) {
-                    assert(rootPtr.children[0]->debug_checkChildCnt(ORDER_, true));
-                    assert(rootPtr.children[0]->debug_checkOrdering(std::nullopt, std::nullopt));
-                    assert(rootPtr.children[0]->debug_checkParentPointers());
-                }
-                #endif
-
-                if (!rootPtr.isLeaf) rootPtr.children[0]->releaseAll();
-            }
-
-            void insert(T key) {
-                scheduler_->submit_request({Scheduler<T>::TreeOp::INSERT, key});
-            }
-
-            void remove(T key) {
-                scheduler_->submit_request({Scheduler<T>::TreeOp::DELETE, key});
-            }
-
-            void get(T key) {
-                scheduler_->submit_request({Scheduler<T>::TreeOp::GET, key});
-            }
-
-        private:
-            Scheduler<T> *scheduler_;
-            FreeNode<T> rootPtr;
-            int ORDER_;
-            int size_;
-        };            
+    template <typename T>
+    void FreeBPlusTree<T>::get(T key) {
+        scheduler_->submit_request({Scheduler<T>::TreeOp::GET, key});
+    }
 }

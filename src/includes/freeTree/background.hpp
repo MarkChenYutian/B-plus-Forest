@@ -1,6 +1,6 @@
 #pragma once
 #include <set>
-#include "../tree.h"
+#include "tree.h"
 #include "freeNode.hpp"
 #include "scheduler.hpp"
 
@@ -21,10 +21,14 @@ namespace Tree {
         FreeNode<T> *rootPtr = wargs->node;
         const int numWorker = scheduler->numWorker_;
 
+        PalmStage nextStage = PalmStage::COLLECT;
+
         while (getStage(scheduler->flag) != PalmStage::COLLECT ||!isTerminate(scheduler->flag)) {
-            if (!scheduler->bg_move) continue;
+            setStage(scheduler->flag, nextStage);
+
+            scheduler->syncBarrierA.wait();
             PalmStage currentState = getStage(scheduler->flag);
-            
+
             Timer timer;
             size_t request_idx;
             Request req = {TreeOp::NOP};
@@ -46,34 +50,23 @@ namespace Tree {
                     scheduler->curr_batch[request_idx++] = req;
                 }
                 
-                scheduler->barrier_cnt = 0;
-                setStage(scheduler->flag, PalmStage::SEARCH);
-
-                // for (size_t i = 0; i < numWorker; i++) scheduler->worker_move[i] = true;
-                scheduler->bg_move = false;
+                nextStage = PalmStage::SEARCH;
                 break;
             
             case PalmStage::SEARCH:
                 // DBG_PRINT(std::cout << "BG: SEARCH" << std::endl);
-                setStage(scheduler->flag, PalmStage::DISTRIBUTE);
+                nextStage = PalmStage::DISTRIBUTE;
                 break;
             
             case PalmStage::DISTRIBUTE:
                 // DBG_PRINT(std::cout << "BG: DISTRIBUTE" << std::endl;);
                 assign_node_to_thread.clear();
                 distribute(scheduler, assign_node_to_thread);
-                scheduler->barrier_cnt = 0;
-                
-                setStage(scheduler->flag, PalmStage::EXEC_LEAF);
-                // for (size_t i = 0; i < numWorker; i++) {
-                //     scheduler->worker_move[i] = true;
-                // }
-                scheduler->bg_move = false; 
+                nextStage = PalmStage::EXEC_LEAF;
                 break;
             
             case PalmStage::EXEC_LEAF:
-                // DBG_PRINT(std::cout << "BG: EXEC_LEAF" << std::endl;);
-                setStage(scheduler->flag, PalmStage::REDISTRIBUTE);
+                nextStage = PalmStage::REDISTRIBUTE;
                 break;
             
             case PalmStage::REDISTRIBUTE:
@@ -85,25 +78,13 @@ namespace Tree {
                 if (assign_node_to_thread.empty()) {
                     // Case 1: worker finds that none of their parents need update
                     // Case 2: background done dealing root
-                    // DBG_PRINT(std::cout << "BG: assign_node_to_thread.size() == 0" << std::endl;);
-                    setStage(scheduler->flag, PalmStage::COLLECT);
+                    nextStage = PalmStage::COLLECT;
                 } else if (isRootUpdate) {
-
-                    // DBG_PRINT(
-                    //     std::cout << "BG: show current tree (before exec root)" << std::endl;
-                    //     scheduler->debugPrint();
-                    // )
                     DBG_ASSERT(assign_node_to_thread.size() == 1);
-                    setStage(scheduler->flag, PalmStage::EXEC_ROOT);
+                    nextStage = PalmStage::EXEC_ROOT;
                 } else {
-
                     // Internal update, done by workers
-                    scheduler->barrier_cnt = 0;
-                    
-                    setStage(scheduler->flag, PalmStage::EXEC_INTERNAL);
-                    // for (size_t i = 0; i < numWorker; i++) {
-                    //     scheduler->worker_move[i] = true;
-                    // }
+                    nextStage = PalmStage::EXEC_INTERNAL;
                     /**
                      * NOTE: We put release nodes here since we can run in parallel with worker
                      * to maximize the throughput of the entire data structure.
@@ -113,26 +94,27 @@ namespace Tree {
                      * nodes, so this will not cause data racing.)
                      */
                     release_nodes(scheduler);
-                    scheduler->bg_move = false;
                 }
                 break;
             
             case PalmStage::EXEC_INTERNAL:
                 // DBG_PRINT(std::cout << "BG: EXEC_INTERNAL" << std::endl;);
-                setStage(scheduler->flag, PalmStage::REDISTRIBUTE);
+                nextStage = PalmStage::REDISTRIBUTE;
                 break;
             
             case PalmStage::EXEC_ROOT:
                 // DBG_PRINT(std::cout << "BG: EXEC_ROOT" << std::endl;);
                 root_execute(scheduler, scheduler->request_assign[0]);
-                setStage(scheduler->flag, PalmStage::COLLECT);
+                nextStage = PalmStage::COLLECT;
                 break;
 
             default:
                 break;
             }
+            scheduler->syncBarrierB.wait();
         }
         scheduler->bg_notify_worker_terminate = true;
+        scheduler->syncBarrierA.wait();
         return nullptr;
     }
 

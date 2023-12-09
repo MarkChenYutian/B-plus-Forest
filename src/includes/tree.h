@@ -9,7 +9,9 @@
 #include <memory>
 #include <optional>
 #include <cassert>
+#include <boost/lockfree/queue.hpp>
 
+#include "utility/Sync.h"
 #include "utility/SIMDOptimizer.h"
 
 
@@ -30,6 +32,12 @@ std::mutex print_mutex;
 
 #endif
 
+
+constexpr static const int MAXWORKER          = 64;
+constexpr static const int BATCHSIZE          = 128;
+constexpr static const int TERMINATE_FLAG     = 0x40000000;
+constexpr static const double COLLECT_TIMEOUT = 0.00001;
+constexpr static const size_t QUEUE_SIZE = BATCHSIZE * 2;
 
 
 namespace Tree {
@@ -85,7 +93,7 @@ namespace Tree {
     };
 
     /**
-     * NOTE: A tree node for sequential version of B+ tree
+     * NOTE: A tree node for lockfree version of B+ tree
      */
     template <typename T>
     struct FreeNode {
@@ -117,6 +125,136 @@ namespace Tree {
         inline size_t getGtKeyIdx(T key) {
             return SIMDOptimizer<T>::getGtKeyIdxSpecialized(keys, key);
         }
+    };
+
+    // Helper Functions
+    enum PalmStage {
+        COLLECT = 0,        // background thread
+        SEARCH  = 1,        // worker threads
+        DISTRIBUTE = 2,     // background thread
+        EXEC_LEAF = 4,      // worker threads
+        REDISTRIBUTE = 8,   // background thread
+        EXEC_INTERNAL = 16, // worker threads
+        EXEC_ROOT = 32      // background thread
+    };
+
+    template <typename T>
+    class Scheduler {
+    public:
+        int numWorker_;
+        int flag = 0;
+        bool bg_notify_worker_terminate = false;
+
+    // Helper structs
+    public:
+        struct WorkerArgs {
+            Scheduler  *scheduler;
+            FreeNode<T> *node;
+            int threadID;
+        };
+
+        /**
+         * NOTE: LeafOp defines the operations to be exeucted on the leaves
+         * NOP    - no operation at all, used to pad the batch to uniform length
+         * GET    - get something from the leaf node
+         * INSERT - insertt something from the leaf node
+         * DELETE - remove something from the leaf node
+         * --------------use for internal nodes---------------
+         * UPDATE - the internal node need to update (child may have splitted or merged)
+         */
+        enum TreeOp {NOP, GET, INSERT, DELETE, UPDATE};
+        static std::string toString(TreeOp op) {
+            switch (op) {
+                case TreeOp::NOP: return "NOP";
+                case TreeOp::DELETE: return "DELETE";
+                case TreeOp::GET: return "GET";
+                case TreeOp::INSERT: return "INSERT";
+                case TreeOp::UPDATE: return "UPDATE";
+            }
+            DBG_ASSERT(false);
+        }
+
+        /**
+         * NOTE: Request class contains the LeafOp and argument (of type T)
+         */
+        struct Request {
+            TreeOp           op;
+            std::optional<T> key;
+            int              idx = -1;
+            FreeNode<T>       *curr_node = nullptr;
+
+            void print() {
+                if (key.has_value()) std::cout << toString(op) << ", " << key.value() << " at " << idx;
+                else std::cout << toString(op) << ", NONE at " << idx;
+            }
+        };
+
+    private:
+        FreeNode<T> *rootPtr;
+        int ORDER_;
+        pthread_t workers[MAXWORKER + 1];
+        WorkerArgs workers_args[MAXWORKER + 1];
+
+        /**
+         * This queue handles the request from external client and will be collected into the curr_batch
+         * periodically.
+         * NOTE: this is only modified by background thread and client threads
+         */
+        boost::lockfree::queue<Request> request_queue;
+        /**
+         * This queue handles the request from internal worker threads and will be collected into the
+         * curr_batch in the INTERNAL_UPDATE stage (stage 3)
+         * NOTE: this is only modified by worker threads and never touched by client
+         */
+        boost::lockfree::queue<Request> internal_request_queue;
+        /**
+         * This queue handles the release requests from internal worker threads.
+         * All pointers in this thread will be removed during the COLLECT phase to eliminate memory
+         * leak.
+         *
+         * Linked list will also be fixed in this phase to avoid racing condition.
+         */
+        boost::lockfree::queue<FreeNode<T>*> internal_release_queue;
+
+        // This array stores the leaf nodes used by each request
+        Request curr_batch[BATCHSIZE];
+        // This array stores the worker-request assignment (distribution)
+        int request_assign_len[BATCHSIZE];
+        Request request_assign[BATCHSIZE][BATCHSIZE];
+
+        // This barrier synchronize the worker and background thread
+        Barrier syncBarrierA;
+        Barrier syncBarrierB;
+
+        struct PrivateWorker;
+        struct PrivateBackground;
+    public:
+        Scheduler(int numWorker, FreeNode<T> *rootPtr, int order);
+        void waitToExit();
+        void submit_request(Request request);
+        void debugPrint();
+    private:
+        static inline bool isTerminate(int &flag);
+        static inline PalmStage getStage(int &flag);
+        static inline void setTerminate(int &flag);
+        static inline void setStage(int &flag, PalmStage stage);
+    };
+
+    template <typename T>
+    class FreeBPlusTree {
+    public:
+        explicit FreeBPlusTree(int order, int numWorker=4);
+        ~FreeBPlusTree();
+
+        void insert(T key);
+        void remove(T key);
+        void get(T key);
+
+    private:
+        Scheduler<T> *scheduler_;
+        FreeNode<T> rootPtr;
+        int ORDER_;
+        int size_;
     };
 
     /**

@@ -1,16 +1,7 @@
 #pragma once
-#include <barrier>
-#include "../tree.h"
+#include "tree.h"
 #include "scheduler.hpp"
 
-/**
- * Once upon a time, there are two subtrees...
- */
-#ifdef DEBUG
-
-std::mutex the_tale_of_two_subtrees;
-
-#endif
 
 namespace Tree {
     template <typename T>
@@ -34,52 +25,38 @@ namespace Tree {
          */
         FreeNode<T> *rootPtr = wargs->node;
         std::vector<Request> privateQueue;
-        while (!scheduler->bg_notify_worker_terminate) {
-            // if (scheduler->bg_move || !scheduler->worker_move[threadID]) continue
-            if (scheduler->bg_move) continue;            
-            PalmStage currentState = getStage(scheduler->flag);
+        while (true) {
+            scheduler->syncBarrierA.wait();
+            if (scheduler->bg_notify_worker_terminate) break;
 
+            PalmStage currentState = getStage(scheduler->flag);
             switch (currentState)
             {
-            case PalmStage::SEARCH:
-                privateQueue.clear();
-                for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
-                    DBG_ASSERT(scheduler->curr_batch[i].op != TreeOp::UPDATE);
-                    if (scheduler->curr_batch[i].op == TreeOp::NOP) {
-                        /**
-                         * TODO: These are for debug only.
-                         */
-                        scheduler->curr_batch[i].key = -15418;
-                        scheduler->curr_batch[i].curr_node = nullptr;
-                        continue;
+                case PalmStage::SEARCH:
+                    privateQueue.clear();
+                    for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
+                        DBG_ASSERT(scheduler->curr_batch[i].op != TreeOp::UPDATE);
+                        if (scheduler->curr_batch[i].op == TreeOp::NOP) continue;
+                        privateQueue.push_back(scheduler->curr_batch[i]);
                     }
-                    privateQueue.push_back(scheduler->curr_batch[i]);
-                }
-                search(scheduler, privateQueue, rootPtr);
-                break;
-            
-            case PalmStage::EXEC_LEAF:
-                for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
-                    leaf_execute(scheduler, scheduler->request_assign[i], i);
-                }
-                break;
+                    search(scheduler, privateQueue, rootPtr);
+                    break;
 
-            case PalmStage::EXEC_INTERNAL:
-                for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
-                    internal_execute(scheduler, scheduler->request_assign[i], i);
-                }
-                break;
-            default:
-                // continue;
-                DBG_ASSERT(false);
+                case PalmStage::EXEC_LEAF:
+                    for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
+                        leaf_execute(scheduler, scheduler->request_assign[i], i);
+                    }
+                    break;
+
+                case PalmStage::EXEC_INTERNAL:
+                    for (size_t i = threadID; i < BATCHSIZE; i+=numWorker) {
+                        internal_execute(scheduler, scheduler->request_assign[i], i);
+                    }
+                    break;
+                default:
+                    break;
             }
-
-            // scheduler->worker_move[threadID] = false;
-            scheduler->barrier_cnt ++;
-            
-            if (scheduler->barrier_cnt == numWorker) scheduler->bg_move = true;
-            
-            pthread_barrier_wait(&scheduler->syncBarrier);
+            scheduler->syncBarrierB.wait();
         }
         return nullptr;
     }
@@ -132,7 +109,6 @@ namespace Tree {
                 DBG_PRINT(scheduler->debugPrint(););
                 DBG_ASSERT(false);
             }
-            auto it = std::lower_bound(leafNode->keys.begin(), leafNode->keys.end(), key);
             
             switch (req.op) {
             case TreeOp::INSERT:
@@ -411,16 +387,7 @@ namespace Tree {
              * TODO: We can resolve this problem by introducing a "releaseQueue" in scheduler and let background
              * thread do the release job when free.
              */
-            #ifdef DEBUG
-            if (left->prev != nullptr && needLock) {
-                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                left->prev->next = right;
-            } else {
-                left->prev->next = right;
-            }
-            #else
             if (left->prev != nullptr) left->prev->next = right;
-            #endif
             
             parent->children.erase(parent->children.begin() + left->childIndex);
 
@@ -447,16 +414,7 @@ namespace Tree {
 
             /** Fix linked list */
             left->next = right->next;
-            #ifdef DEBUG
-            if (right->next != nullptr && needLock) {
-                std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-                right->next->prev = left;
-            } else {
-                right->next->prev = left;
-            }
-            #else 
             if (right->next != nullptr) right->next->prev = left;
-            #endif
 
             parent->children.erase(parent->children.begin() + right->childIndex);  // todo
 
@@ -513,17 +471,7 @@ namespace Tree {
         new_node->next = child;
         new_node->prev = child->prev;
         child->prev    = new_node;
-
-        #ifdef DEBUG
-        if (needLock) {
-            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            if (new_node->prev != nullptr) new_node->prev->next = new_node; // TODO
-        } else {
-            if (new_node->prev != nullptr) new_node->prev->next = new_node;
-        }
-        #else
         if (new_node->prev != nullptr) new_node->prev->next = new_node;
-        #endif
 
         DBG_ASSERT(isHalfFull(new_node, order));
         DBG_ASSERT(isHalfFull(child, order));
@@ -554,7 +502,6 @@ namespace Tree {
             child->keys.erase(child->keys.end() - numToSplitRight, child->keys.end());
             parent->keys.insert(parent->keys.begin() + index, new_node->keys.front());
         } else {
-
             new_node->keys.insert(new_node->keys.begin(), child->keys.end() - numToSplitRight, child->keys.end());
             child->keys.erase(child->keys.end() - numToSplitRight, child->keys.end());
             parent->keys.insert(parent->keys.begin() + index, child->keys.back());
@@ -574,18 +521,7 @@ namespace Tree {
         new_node->prev = child;
         new_node->next = child->next;
         child->next = new_node;
-        // if (new_node->next != nullptr)  new_node->next->prev = new_node;
-
-        #ifdef DEBUG
-        if (needLock) {
-            std::lock_guard<std::mutex> guard(the_tale_of_two_subtrees);
-            if (new_node->next != nullptr)  new_node->next->prev = new_node;
-        } else {
-            if (new_node->next != nullptr)  new_node->next->prev = new_node;
-        }
-        #else
         if (new_node->next != nullptr)  new_node->next->prev = new_node;
-        #endif
 
         DBG_ASSERT(isHalfFull(new_node, order));
         DBG_ASSERT(isHalfFull(child, order));

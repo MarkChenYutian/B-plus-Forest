@@ -19,23 +19,31 @@ namespace Tree {
 
     template <typename T>
     void LockManager<T>::releaseAll() {
-        while (start != end) {
-            if (nodes[start] != nullptr) {
-                if (isShared) nodes[start]->latch.unlock_shared();
-                else nodes[start]->latch.unlock();
+        if (isShared) {
+            while (start != end) {
+                if (nodes[start] != nullptr) nodes[start]->latch.unlock_shared();
+                start ++;
             }
-            start ++;
+        } else {
+            while (start != end) {
+                if (nodes[start] != nullptr) nodes[start]->latch.unlock();
+                start++;
+            }
         }
     }
 
     template <typename T>
     void LockManager<T>::releasePrev() {
-        while ((end - start) > 1) {
-            if (nodes[start] != nullptr) {
-                if (isShared) nodes[start]->latch.unlock_shared();
-                else nodes[start]->latch.unlock();
+        if (isShared) {
+            while ((end - start) > 1) {
+                if (nodes[start] != nullptr) nodes[start]->latch.unlock_shared();
+                start++;
             }
-            start++;
+        } else {
+            while ((end - start) > 1) {
+                if (nodes[start] != nullptr) nodes[start]->latch.unlock();
+                start++;
+            }
         }
     }
 

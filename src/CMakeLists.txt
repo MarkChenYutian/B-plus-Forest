@@ -7,13 +7,14 @@ project(BForest)
 include(CTest)
 
 # Specify the C++ standard (e.g., C++17)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(ENV{TSAN_OPTIONS} "second_deadlock_stack=1")
 
 # Get required packages
 find_package(Threads REQUIRED)
 find_package(Boost REQUIRED)
 find_package(MPI REQUIRED)
+find_package(OpenMP REQUIRED)
 
 # Check for the compiler and set the appropriate flags
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -25,6 +26,12 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
         add_compile_options(/arch:SSE2)
     endif()
+endif()
+
+if (OPENMP_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    link_directories("${OPENMP_LIBRARIES}")
 endif()
 
 
@@ -55,8 +62,9 @@ set(HEADERS
     includes/fineTree/lockQueue.hpp
     includes/fineTree/fineTree.hpp
     includes/fineTree/fineNode.hpp
+        includes/utility/Sync.h
 
-    # Distri Tree
+        # Distri Tree
     # includes/distriTree/distriTree.h
     # includes/distriTree/distriTree.hpp
 )
@@ -94,6 +102,7 @@ set(COARSE_TEST_SRC src/coarseTest.cpp)
 add_executable(coarseTestDebug ${HEADERS} ${COARSE_TEST_SRC})
 target_compile_options(coarseTestDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(coarseTestDebug PRIVATE Threads::Threads ${MPI_LIBRARIES})
+target_link_libraries(coarseTestDebug PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(coarseTestDebug PROPERTIES 
     COMPILE_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
     LINK_FLAGS "-fsanitize=address,undefined ${MPI_LINK_FLAGS}"
@@ -103,6 +112,7 @@ set_target_properties(coarseTestDebug PROPERTIES
 add_executable(coarseTestRelease ${HEADERS} ${COARSE_TEST_SRC})
 target_compile_options(coarseTestRelease PRIVATE -O3)
 target_link_libraries(coarseTestRelease PRIVATE Threads::Threads  ${MPI_LIBRARIES})
+target_link_libraries(coarseTestRelease PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(coarseTestRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 
@@ -113,6 +123,7 @@ set(FINE_TEST_SRC src/fineTest.cpp)
 add_executable(fineTestDebug ${HEADERS} ${FINE_TEST_SRC})
 target_compile_options(fineTestDebug PRIVATE -fsanitize=undefined,address -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(fineTestDebug PRIVATE Threads::Threads ${MPI_LIBRARIES})
+target_link_libraries(fineTestDebug PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(fineTestDebug PROPERTIES 
     COMPILE_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
     LINK_FLAGS "-fsanitize=address,undefined ${MPI_LINK_FLAGS}"
@@ -123,6 +134,7 @@ set_target_properties(fineTestDebug PROPERTIES
 add_executable(fineTestRelease ${HEADERS} ${COARSE_TEST_SRC})
 target_compile_options(fineTestRelease PRIVATE -O3)
 target_link_libraries(fineTestRelease PRIVATE Threads::Threads ${MPI_LIBRARIES})
+target_link_libraries(fineTestRelease PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(fineTestRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 
@@ -135,6 +147,7 @@ add_executable(FreeTreeDebug ${HEADERS} ${PALM_TEST_SRC})
 target_compile_options(FreeTreeDebug PRIVATE -fsanitize=undefined,address,leak -fno-omit-frame-pointer -g -DDEBUG)
 target_link_libraries(FreeTreeDebug PRIVATE Threads::Threads)
 target_link_libraries(FreeTreeDebug PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(FreeTreeDebug PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(FreeTreeDebug PROPERTIES 
     COMPILE_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -g -DDEBUG ${MPI_COMPILE_FLAGS}"
     LINK_FLAGS "-fsanitize=address,undefined ${MPI_LINK_FLAGS}"
@@ -145,6 +158,7 @@ add_executable(FreeTreeRelease ${HEADERS} ${PALM_TEST_SRC})
 target_compile_options(FreeTreeRelease PRIVATE -O3)
 target_link_libraries(FreeTreeRelease PRIVATE Threads::Threads)
 target_link_libraries(FreeTreeRelease PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(FreeTreeRelease PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(FreeTreeRelease PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 
@@ -170,6 +184,7 @@ add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
 target_compile_options(benchmarkOptimized PRIVATE -O2)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(benchmarkOptimized PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(benchmarkOptimized PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 set(BENCHMARK_SRC src/benchmark.cpp)
@@ -177,6 +192,7 @@ add_executable(benchmarkPlain ${HEADERS} ${BENCHMARK_SRC})
 target_compile_options(benchmarkPlain PRIVATE -O0)
 target_link_libraries(benchmarkPlain PRIVATE Threads::Threads)
 target_link_libraries(benchmarkPlain PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
+target_link_libraries(benchmarkPlain PUBLIC OpenMP::OpenMP_CXX)
 set_target_properties(benchmarkPlain PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}" LINK_FLAGS "${MPI_LINK_FLAGS}")
 
 

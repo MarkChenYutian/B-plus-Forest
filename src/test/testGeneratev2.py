@@ -8,6 +8,12 @@ class Trace:
         if self.op == "BARRIER": return self.op
         elif self.expect is None: return f"{self.op},{self.key},NONE"
         return f"{self.op},{self.key},{self.expect}"
+    @classmethod
+    def deserialize(cls, line):
+        if line == "BARRIER":
+            return cls("BARRIER", -1, None)
+        op, key, expect = line.split(",")
+        return cls(op, int(key), None if expect == "NONE" else int(expect))
 
 
 class CaseGenerator:
