@@ -10,6 +10,7 @@
 #include <optional>
 #include <cassert>
 #include <boost/lockfree/queue.hpp>
+#include <boost/lockfree/spsc_queue.hpp>
 
 #include "utility/Sync.h"
 #include "utility/SIMDOptimizer.h"
@@ -200,7 +201,7 @@ namespace Tree {
          * periodically.
          * NOTE: this is only modified by background thread and client threads
          */
-        boost::lockfree::queue<Request> request_queue;
+        boost::lockfree::spsc_queue<Request> request_queue;
         /**
          * This queue handles the request from internal worker threads and will be collected into the
          * curr_batch in the INTERNAL_UPDATE stage (stage 3)
@@ -220,7 +221,9 @@ namespace Tree {
         Request curr_batch[BATCHSIZE];
         // This array stores the worker-request assignment (distribution)
         int request_assign_len[BATCHSIZE];
-        Request request_assign[BATCHSIZE][BATCHSIZE];
+        // Request request_assign[BATCHSIZE][BATCHSIZE];
+        uint32_t request_assign[BATCHSIZE][BATCHSIZE];
+        Request request_assign_all[BATCHSIZE];
 
         // This barrier synchronize the worker and background thread
         Barrier syncBarrierA;

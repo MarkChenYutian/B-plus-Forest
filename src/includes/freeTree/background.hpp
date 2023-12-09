@@ -13,7 +13,7 @@ namespace Tree {
         /**
          * This map is used by background thread to distribute requests to each leaf node in freeTree
          */
-        std::unordered_map<FreeNode<T> *, std::vector<Request>> assign_node_to_thread;
+        std::unordered_map<FreeNode<T> *, std::vector<uint32_t>> assign_node_to_thread;
 
         WorkerArgs *wargs = static_cast<WorkerArgs*>(args);
         const int threadID = wargs->threadID;
@@ -117,32 +117,58 @@ namespace Tree {
         scheduler->syncBarrierA.wait();
         return nullptr;
     }
+    
+    static void processAssignmentsNeon(std::unordered_map<FreeNode<T> *, std::vector<uint32_t>> &assign_node_to_thread, Scheduler* scheduler) {
+        // for (size_t i = 0; i < assign_node_to_thread.size(); i++) {
+        size_t i = 0;
+        for (auto it = assign_node_to_thread.begin(); it != assign_node_to_thread.end() && i < BATCHSIZE; ++it, ++i) {
+            auto &elem = *it;
+            size_t ridx = 0;
+            size_t widx = i;
 
+            for (uint32_t& idx : elem.second) {
+                // Example of using Neon intrinsics (assuming float data type)
+                uint32x4_t idx_neon = vld1q_u32(&idx); // Load Request data into Neon register
+                vst1q_u32(&scheduler->request_assign[widx][ridx], idx_neon); // Store Neon register into the Scheduler data
+
+                ridx++;
+            }
+
+            scheduler->request_assign_len[widx] = ridx;
+        }
+    }
     static void distribute(
         Scheduler *scheduler, 
-        std::unordered_map<FreeNode<T> *, std::vector<Request>> &assign_node_to_thread
+        std::unordered_map<FreeNode<T> *, std::vector<uint32_t>> &assign_node_to_thread
     ) {
-        for (size_t i = 0; i < BATCHSIZE; i++) {
+        for (uint32_t i = 0; i < BATCHSIZE; i++) {
             Request req = scheduler->curr_batch[i];
             if (req.op == TreeOp::NOP) continue;
 
             FreeNode<T> *node = req.curr_node;
             DBG_ASSERT(node != nullptr);
-            assign_node_to_thread[node].push_back(req);
+            assign_node_to_thread[node].push_back(i);
+            scheduler->request_assign_all[i] = req;
         }
         DBG_ASSERT(assign_node_to_thread.size() <= BATCHSIZE);
         
-        size_t widx = 0;
-        // Fill the slots with Request (task) queue
-        for (auto &elem : assign_node_to_thread) {
-            size_t ridx = 0;
-            for (Request &req : elem.second) {
-                scheduler->request_assign[widx][ridx] = req;
-                ridx ++;
-            }
-            scheduler->request_assign_len[widx] = ridx;
-            widx ++;
-        }
+        // not use simd
+        // size_t widx = 0;
+        // // Fill the slots with Request (task) queue
+        // for (auto &elem : assign_node_to_thread) {
+        //     size_t ridx = 0;
+        //     for (uint32_t &idx : elem.second) {
+        //         scheduler->request_assign[widx][ridx] = idx;
+        //         ridx ++;
+        //     }
+        //     scheduler->request_assign_len[widx] = ridx;
+        //     widx ++;
+        // }
+
+        // use simd 
+        processAssignmentsNeon(assign_node_to_thread, scheduler);
+        size_t widx = assign_node_to_thread.size();
+
         // For remaining slots, clear them up
         while (widx < BATCHSIZE) {
             scheduler->request_assign_len[widx] = 0;
@@ -152,31 +178,38 @@ namespace Tree {
 
     static bool redistribute(
         Scheduler *scheduler,
-        std::unordered_map<FreeNode<T> *, std::vector<Request>> &assign_node_to_thread
+        std::unordered_map<FreeNode<T> *, std::vector<uint32_t>> &assign_node_to_thread
     ) {
         Request update_req;
         std::set<FreeNode<T>*> parent_update_min;
-
+        size_t i = 0;
         while (scheduler->internal_request_queue.pop(update_req)) {
             if (assign_node_to_thread.find(update_req.curr_node) != assign_node_to_thread.end()) {
                 continue;
             }
-            assign_node_to_thread[update_req.curr_node].push_back(update_req);
+            assign_node_to_thread[update_req.curr_node].push_back(i);
+            scheduler->request_assign_all[i++] = update_req;
         }
 
         DBG_ASSERT(assign_node_to_thread.size() <= BATCHSIZE);
 
+        // not use simd
         size_t widx = 0;
         // Fill the slots with Request (task) queue
         for (auto &elem : assign_node_to_thread) {
             size_t ridx = 0;
-            for (Request &req : elem.second) {
-                scheduler->request_assign[widx][ridx] = req;
+            for (uint32_t &idx : elem.second) {
+                scheduler->request_assign[widx][ridx] = idx;
                 ridx ++;
             }
             scheduler->request_assign_len[widx] = ridx;
             widx ++;
         }
+
+        // use simd
+        // processAssignmentsNeon(assign_node_to_thread, scheduler);
+        // size_t widx = assign_node_to_thread.size();
+
         // For remaining slots, clear them up
         while (widx < BATCHSIZE) {
             scheduler->request_assign_len[widx] = 0;
@@ -185,14 +218,14 @@ namespace Tree {
 
 
         if (assign_node_to_thread.size() == 1) {
-            Request req = scheduler->request_assign[0][0];
+            Request req = scheduler->request_assign_all[scheduler->request_assign[0][0]];
             if (req.curr_node == scheduler->rootPtr) return true;
         }
         return false;
     }
     
-    static void root_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE]) {
-        Request rootUpdateRequest = requests_in_the_same_node[0];
+    static void root_execute(Scheduler *scheduler, uint32_t (&requests_in_the_same_node)[BATCHSIZE]) {
+        Request rootUpdateRequest = scheduler->request_assign_all[requests_in_the_same_node[0]];
         int order = scheduler->ORDER_;
 
         DBG_ASSERT(rootUpdateRequest.curr_node == scheduler->rootPtr);

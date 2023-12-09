@@ -25,6 +25,7 @@ namespace Tree {
          */
         FreeNode<T> *rootPtr = wargs->node;
         std::vector<Request> privateQueue;
+        // Request privateQueue[BATCHSIZE];
         while (true) {
             scheduler->syncBarrierA.wait();
             if (scheduler->bg_notify_worker_terminate) break;
@@ -72,16 +73,17 @@ namespace Tree {
         }
     }
 
-    inline static void leaf_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
+    inline static void leaf_execute(Scheduler *scheduler, uint32_t (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
+    // inline static void leaf_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
         int order = scheduler->ORDER_;
         size_t numRequest = scheduler->request_assign_len[slot_idx];
 
         if (numRequest == 0) return;
         // leafNode could be root_node, or rootPtr
-        FreeNode<T> *leafNode = requests_in_the_same_node[0].curr_node;
+        FreeNode<T> *leafNode = scheduler->request_assign_all[requests_in_the_same_node[0]].curr_node;
         
         /**
-         * NOTE: Special case: the tree is orignally empty, and we are insert the first few
+         * NOTE: Special case: the tree is originally empty, and we are insert the first few
          * elements of the tree. In this case there is only one worker since all the leaf nodes
          * are the rootPtr.
          */
@@ -98,7 +100,8 @@ namespace Tree {
         // for (Request &req : requests_in_the_same_node) {
         for (int i = 0; i < numRequest; i ++) {
             // Request req = std::move(requests_in_the_same_node[i]);
-            Request req = requests_in_the_same_node[i];
+            // Request req = requests_in_the_same_node[i];
+            Request req = scheduler->request_assign_all[requests_in_the_same_node[i]];
 
             DBG_ASSERT(req.key.has_value());
             DBG_ASSERT(req.op == TreeOp::DELETE || req.op == TreeOp::GET || req.op == TreeOp::INSERT);
@@ -137,7 +140,8 @@ namespace Tree {
         }
     }
 
-    inline static void internal_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
+    inline static void internal_execute(Scheduler *scheduler, uint32_t (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
+    // inline static void internal_execute(Scheduler *scheduler, Request (&requests_in_the_same_node)[BATCHSIZE], int slot_idx) {
         // if (requests_in_the_same_node.empty()) return;
         if (scheduler->request_assign_len[slot_idx] == 0) return;
         
@@ -145,7 +149,8 @@ namespace Tree {
         // DBG_ASSERT(requests_in_the_same_node[0].op == TreeOp::UPDATE);
         DBG_ASSERT(scheduler->request_assign_len[slot_idx] == 1);
 
-        Request update_req = requests_in_the_same_node[0];
+        // Request update_req = requests_in_the_same_node[0];
+        Request update_req = scheduler->request_assign_all[requests_in_the_same_node[0]];
         FreeNode<T> *node = update_req.curr_node;
 
         // assert(node->children.size() >= 2);

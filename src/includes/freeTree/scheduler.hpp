@@ -15,7 +15,7 @@ namespace Tree {
             numWorker_(numWorker), rootPtr(rootPtr), ORDER_(order),
             syncBarrierA(numWorker + 1),
             syncBarrierB(numWorker + 1),
-            request_queue(boost::lockfree::queue<Request>(QUEUE_SIZE)),
+            request_queue(boost::lockfree::spsc_queue<Request>(QUEUE_SIZE)),
             internal_request_queue(boost::lockfree::queue<Request>(BATCHSIZE)),
             internal_release_queue(boost::lockfree::queue<FreeNode<T>*>(BATCHSIZE * numWorker * 4))
     {
@@ -57,7 +57,7 @@ namespace Tree {
         * in the client, we use the while loop below to ensure that no conflict
         * write will occur on the request_queue.
         */
-        while (!request_queue.bounded_push(request)) {};
+        while (!request_queue.push(request)) {};
     }
 
     template <typename T>
