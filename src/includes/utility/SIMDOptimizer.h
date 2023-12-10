@@ -1,20 +1,26 @@
 #pragma once
-
 #include <vector>
 #include <cstdio>
 
 #if defined(__x86_64__)
     #include <emmintrin.h>
+    #include <xmmintrin.h>
 #elif defined(__aarch64__)
     #include <arm_neon.h>
 #endif
 
 
 namespace Tree {
+    template <typename T>
+    class FreeNode;
+    template <typename T>
+    class Scheduler;
+    template <typename T>
+    using NodeMap = std::unordered_map<Tree::FreeNode<T> *, std::vector<uint32_t>>;
 
     template <typename T>
     class SIMDOptimizer {
-    private:
+    public:
 
     #if defined(__x86_64__)
         static constexpr size_t simdWidth = sizeof(__m128i) / sizeof(int);
@@ -24,7 +30,60 @@ namespace Tree {
         
     public:
         static inline size_t getGtKeyIdxSpecialized(const std::vector<T> &keys, T key);
+        static void processAssignments(NodeMap<T> &assign_node_to_thread, Scheduler<T>* scheduler, size_t BATCHSIZE);
     };
+
+
+    /**
+     * SIMD Optimized node-assignment for worker thread.
+     */
+    template <typename T>
+    void SIMDOptimizer<T>::processAssignments(NodeMap<T> &assign_node_to_thread, Scheduler<T> *scheduler, size_t BATCHSIZE){
+#ifdef NOSIMD
+        size_t widx = 0;
+        // Fill the slots with Request (task) queue
+        for (auto &elem : assign_node_to_thread) {
+            size_t ridx = 0;
+            for (uint32_t &idx: elem.second) {
+                scheduler->request_assign[widx][ridx] = idx;
+                ridx++;
+            }
+            scheduler->request_assign_len[widx] = ridx;
+            widx++;
+        }
+#elif defined(__x86_64__)
+        size_t widx = 0;
+        for (auto &elem : assign_node_to_thread) {
+            size_t eidx = 0;
+            for (; eidx + simdWidth < elem.second.size(); eidx += simdWidth) {
+                __m128i idx_sse = _mm_load_si128(reinterpret_cast<const __m128i*>(&elem.second[eidx]));
+                _mm_store_si128(reinterpret_cast<__m128i*>(&scheduler->request_assign[widx][eidx]), idx_sse);
+            }
+            for (; eidx < elem.second.size(); eidx ++) {
+                scheduler->request_assign[widx][eidx] = elem.second[eidx];
+            }
+            scheduler->request_assign_len[widx] = eidx;
+            widx++;
+        }
+#else
+        size_t i = 0;
+        for (auto it = assign_node_to_thread.begin(); it != assign_node_to_thread.end() && i < BATCHSIZE; ++it, ++i) {
+            auto &elem = *it;
+            size_t ridx = 0;
+            size_t widx = i;
+
+            for (uint32_t& idx : elem.second) {
+                // Example of using Neon intrinsics (assuming float data type)
+                uint32x4_t idx_neon = vld1q_u32(&idx); // Load Request data into Neon register
+                vst1q_u32(&scheduler->request_assign[widx][ridx], idx_neon); // Store Neon register into the Scheduler data
+                ridx++;
+            }
+
+            scheduler->request_assign_len[widx] = ridx;
+        }
+#endif
+    }
+
 
     /**
      * Generic getGtKeyIdx - scan over the vector for first index
@@ -39,15 +98,15 @@ namespace Tree {
     /**
      * Specialized getGtKeyIdx - use SIMD to scan over the vector.
      */
+    template <>
+    size_t SIMDOptimizer<int>::getGtKeyIdxSpecialized(const std::vector<int> &keys, int key) {
     #ifdef __x86_64__
-        template <>
-        size_t SIMDOptimizer<int>::getGtKeyIdxSpecialized(const std::vector<int> &keys, int key) {
             size_t index = 0;
             size_t numKeys = keys.size();
             __m128i keyVector = _mm_set1_epi32(key);
 
             while (index + simdWidth < numKeys) {
-                __m128i dataVector = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&keys[index]));
+                __m128i dataVector = _mm_load_si128(reinterpret_cast<const __m128i*>(&keys[index]));
                 __m128i cmpResult = _mm_cmpgt_epi32(dataVector, keyVector);
                 int mask = _mm_movemask_epi8(cmpResult);
                 if (mask != 0) {
@@ -62,10 +121,7 @@ namespace Tree {
             // Handle any remaining elements
             while (index < numKeys && keys[index] <= key) index++;
             return index;
-        }
     #else
-        template <>
-        size_t SIMDOptimizer<int>::getGtKeyIdxSpecialized(const std::vector<int> &keys, int key) {
             size_t index = 0;
             size_t numKeys = keys.size();
             int32x4_t keyVector = vdupq_n_s32(key);
@@ -89,14 +145,6 @@ namespace Tree {
             // Handle any remaining elements
             while (index < numKeys && keys[index] <= key) index++;
             return index;
-        }
     #endif
+    }
 };
-
-/*
-#include <arm_neon.h>
-
-
-}
-
- */

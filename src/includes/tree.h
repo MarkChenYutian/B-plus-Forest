@@ -142,9 +142,13 @@ namespace Tree {
     template <typename T>
     class Scheduler {
     public:
+        bool bg_notify_worker_terminate = false;
         int numWorker_;
         int flag = 0;
-        bool bg_notify_worker_terminate = false;
+
+        uint32_t request_assign[BATCHSIZE][BATCHSIZE] __attribute__((aligned(16)));
+        // This array stores the worker-request assignment (distribution)
+        int request_assign_len[BATCHSIZE];
 
     // Helper structs
     public:
@@ -219,10 +223,6 @@ namespace Tree {
 
         // This array stores the leaf nodes used by each request
         Request curr_batch[BATCHSIZE];
-        // This array stores the worker-request assignment (distribution)
-        int request_assign_len[BATCHSIZE];
-        // Request request_assign[BATCHSIZE][BATCHSIZE];
-        uint32_t request_assign[BATCHSIZE][BATCHSIZE];
         Request request_assign_all[BATCHSIZE];
 
         // This barrier synchronize the worker and background thread
