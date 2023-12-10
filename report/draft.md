@@ -17,3 +17,12 @@
 4. Optimize fine-lock - refactor LockDeque<T> - using statically allocated array instead of deque to speed up.
 5. Use a customized Barrier - Spin lock to reduce system call to Linux kernel, significant speedup for palm tree!
 6. Prefill - 
+
+---
+
+# PSC Run Commands
+
+```bash
+$ module load gcc/10.2.0
+$ module load openmpi/4.1.1-gcc8.3.1
+```
