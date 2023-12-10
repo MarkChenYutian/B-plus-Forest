@@ -4,7 +4,6 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <barrier>
 #include <optional>
 #include <iostream>
 #include <cassert>
