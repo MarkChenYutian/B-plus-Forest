@@ -13,8 +13,10 @@
 #include <iomanip>
 #include <sys/wait.h>
 #include <cstdio>
+#include "mpi.h"
 #include "tree.h"
 #include "utility/timing.h"
+#include "distriTree/distriTree.h"
 
 namespace Engine {
 
@@ -472,6 +474,118 @@ IEngine<T>::TestEntry::TestEntry(const std::string &line) {
     if (tok == "NONE") expect = std::nullopt;
     else expect = std::stoi(tok);
 }
+
+
+class DistributeEngine : public IEngine<Tree::DistriBPlusTree> {
+    public:
+        int repeatNum{};
+        int numWorker{};
+        MPI_Comm world;
+        std::optional<std::pair<int, int>> prefill;
+
+    public:
+        DistributeEngine(const EngineConfig &cfg, MPI_Comm world): world(world) {
+            this->order = cfg.order;
+            this->paths = cfg.paths;
+            this->numProcess = cfg.numProcess;
+            this->repeatNum = 1;
+            this->prefill = cfg.prefill;
+            this->numWorker = cfg.numWorker;
+        }
+
+        void inline Prefill(Tree::DistriBPlusTree<int> *tree, int start, int end) {
+            for (int elem = start; elem < end; elem ++) {
+                tree->insert(elem);
+            }
+        }
+
+        void Run() override {
+            double average_qps = 0;
+            for (size_t i = 0; i < this->paths.size(); i ++) {
+                auto testCase = this->paths[i];
+                IEngine<Tree::DistriBPlusTree>::loadTestCase(testCase);
+
+                double run_seconds = 0.0f, build_seconds = 0.0f, del_seconds = 0.0f;
+
+                for (int repeat = 0; repeat < repeatNum; repeat ++) {
+                    Timer caseTimer;
+                    auto *tree = new Tree::DistriBPlusTree<int>(order, world);
+                    build_seconds += caseTimer.elapsed();
+
+                    // If have prefill, process the prefills first.
+                    if (prefill.has_value()) {
+                        int start = prefill->first, end = prefill->second;
+                        Prefill(tree, start, end);
+                    }
+
+                    caseTimer.reset();
+                    runTestCase(tree);
+
+                    run_seconds += caseTimer.elapsed();
+
+                    caseTimer.reset();
+                    delete tree;
+                    del_seconds += caseTimer.elapsed();
+                }
+
+                run_seconds = run_seconds / repeatNum;
+                build_seconds = build_seconds / repeatNum;
+                del_seconds = del_seconds / repeatNum;
+
+                float estimated_qps = static_cast<float>(this->currCase.size()) / run_seconds / 1000000.0f;
+                average_qps += estimated_qps;
+
+                std::cout << "\r\033[1;32mCase " << i << "\t " << testCase << "\033[0m" << "\t";
+                double run_ms = run_seconds * 1000,
+                        build_ms = build_seconds * 1000,
+                        del_ms = del_seconds * 1000;
+
+                std::cout << "\tBenchmark: " <<
+                          toFixedLenStr(estimated_qps, 4) << "MQPS in " <<
+                          toFixedLenStr(run_ms       , 4) << "ms, prep in " <<
+                          toFixedLenStr(build_ms     , 4) << "ms, del in  " <<
+                          toFixedLenStr(del_ms       , 4) << std::endl;
+            }
+            std::cout << "Average MQPS:" << toFixedLenStr(average_qps / this->paths.size(), 5) << std::endl;
+        }
+
+    private:
+        static std::string toFixedLenStr(float x, int n) {
+            // Convert float to string with desired number of decimal places
+            std::stringstream ss;
+            ss << std::fixed << std::setprecision(n) << x;
+            std::string str = ss.str();
+            // Pad with zeros if necessary
+            if (str.length() < n + 3) {
+                str += std::string(n + 3 - str.length(), '0');
+            }
+            return str;
+        }
+
+        void runTestCase(Tree::DistriBPlusTree<int> *tree) {
+            int world_size, rank;
+            MPI_Comm_size(world, &world_size);
+            MPI_Comm_rank(world, &rank);
+
+            for (size_t idx = 0; idx < this->currCase.size(); idx ++) {
+                auto entry = this->currCase[idx];
+                if (idx % world_size != rank) continue;
+                switch (entry.op){
+                    case IEngine<Tree::DistriBPlusTree>::TestOp::INSERT:
+                        tree->insert(entry.value);
+                        break;
+                    case IEngine<Tree::DistriBPlusTree>::TestOp::REMOVE:
+                        tree->remove(entry.value);
+                        break;
+                    case IEngine<Tree::DistriBPlusTree>::TestOp::GET:
+                        tree->get(entry.value);
+                        break;
+                    case IEngine<Tree::DistriBPlusTree>::TestOp::BARRIER:
+                        break;
+                }
+            }
+        }
+    };
 
 template <template <typename> class T>
 void IEngine<T>::TestEntry::print() {
