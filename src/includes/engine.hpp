@@ -328,7 +328,7 @@ public:
         this->order = cfg.order;
         this->paths = cfg.paths;
         this->numProcess = cfg.numProcess;
-        this->repeatNum = 1;
+        this->repeatNum = 5;
         this->prefill = cfg.prefill;
         this->numWorker = cfg.numWorker;
     }

@@ -37,29 +37,45 @@ int main() {
         std::string s = "../test/B_megaGet_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
+    for (int i = 0; i < 3; i ++) {
+        std::string s = "../test/B_megaMix_" + std::to_string(i) + ".case";
+        Cases.push_back(s);
+    }
 
-    Engine::EngineConfig sequentialCfg {5, 1, 1, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig parallelx2Cfg {5, 2, 1, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig parallelx4Cfg {5, 4, 1, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig parallelx8Cfg {5, 8, 1, Cases, std::make_pair(100000, 900000)};
+    int order = 9;
+    std::pair<int, int> prefill{0, 1000000};
+    // std::optional<std::pair<int, int>> prefill = std::nullopt;
 
-    Engine::EngineConfig workerx2Cfg {5, 1, 2, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig workerx4Cfg {5, 1, 4, Cases, std::make_pair(100000, 900000)};
-    Engine::EngineConfig workerx8Cfg {5, 1, 8, Cases, std::make_pair(100000, 900000)};
+    Engine::EngineConfig sequentialCfg {order, 1, 1, Cases, prefill};
+    Engine::EngineConfig parallelx2Cfg {order, 2, 1, Cases, prefill};
+    Engine::EngineConfig parallelx4Cfg {order, 4, 1, Cases, prefill};
+    Engine::EngineConfig parallelx6Cfg {order, 6, 1, Cases, prefill};
+    Engine::EngineConfig parallelx8Cfg {order, 8, 1, Cases, prefill};
 
-     MetaEngine(TreeType::Sequential, "Baseline", Cases, sequentialCfg);
-     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
-     MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
+    Engine::EngineConfig workerx2Cfg {order, 1, 2, Cases, prefill};
+    Engine::EngineConfig workerx4Cfg {order, 1, 4, Cases, prefill};
+    Engine::EngineConfig workerx6Cfg {order, 1, 6, Cases, prefill};
+    Engine::EngineConfig workerx8Cfg {order, 1, 8, Cases, prefill};
 
-     MetaEngine(TreeType::FineGrain  , "FineGrain x1", Cases, sequentialCfg);
-     MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
-     MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);
-     MetaEngine(TreeType::FineGrain  , "FineGrain x8", Cases, parallelx8Cfg);
+    MetaEngine(TreeType::Sequential, "Baseline x1", Cases, sequentialCfg);
 
-     MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
-     MetaEngine(TreeType::LockFree   , "LockFree x2", Cases, workerx2Cfg);
-     MetaEngine(TreeType::LockFree   , "LockFree x4", Cases, workerx4Cfg);
-     MetaEngine(TreeType::LockFree   , "LockFree x8", Cases, workerx8Cfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x1", Cases, sequentialCfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x2", Cases, parallelx2Cfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x4", Cases, parallelx4Cfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x6", Cases, parallelx6Cfg);
+    MetaEngine(TreeType::CoarseGrain, "CoarseGrain x8", Cases, parallelx8Cfg);
+
+    MetaEngine(TreeType::FineGrain  , "FineGrain x1", Cases, sequentialCfg);
+    MetaEngine(TreeType::FineGrain  , "FineGrain x2", Cases, parallelx2Cfg);
+    MetaEngine(TreeType::FineGrain  , "FineGrain x4", Cases, parallelx4Cfg);
+    MetaEngine(TreeType::FineGrain  , "FineGrain x6", Cases, parallelx6Cfg);
+    MetaEngine(TreeType::FineGrain  , "FineGrain x8", Cases, parallelx8Cfg);
+
+    MetaEngine(TreeType::LockFree   , "LockFree x1", Cases, sequentialCfg);
+    MetaEngine(TreeType::LockFree   , "LockFree x2", Cases, workerx2Cfg);
+    MetaEngine(TreeType::LockFree   , "LockFree x4", Cases, workerx4Cfg);
+    MetaEngine(TreeType::LockFree   , "LockFree x6", Cases, workerx6Cfg);
+    MetaEngine(TreeType::LockFree   , "LockFree x8", Cases, workerx8Cfg);
 
     return 0;
 }

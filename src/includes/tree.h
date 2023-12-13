@@ -34,7 +34,7 @@ std::mutex print_mutex;
 #endif
 
 
-constexpr static const int MAXWORKER          = 64;
+constexpr static const int MAXWORKER          = 16;
 constexpr static const int BATCHSIZE          = 128;
 constexpr static const int TERMINATE_FLAG     = 0x40000000;
 constexpr static const double COLLECT_TIMEOUT = 0.00001;

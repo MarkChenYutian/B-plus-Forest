@@ -173,7 +173,7 @@ set_target_properties(distributeTreeDebug PROPERTIES
 
 set(BENCHMARK_SRC src/benchmark.cpp)
 add_executable(benchmarkOptimized ${HEADERS} ${BENCHMARK_SRC})
-target_compile_options(benchmarkOptimized PRIVATE -O2)
+target_compile_options(benchmarkOptimized PRIVATE -Ofast)
 target_link_libraries(benchmarkOptimized PRIVATE Threads::Threads)
 target_link_libraries(benchmarkOptimized PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 #target_link_libraries(benchmarkOptimized PUBLIC OpenMP::OpenMP_CXX)
@@ -193,6 +193,7 @@ set(BENCHMARK_SRC src/ctestRunner.cpp includes/utility/SIMDOptimizer.h)
 add_executable(AutoTest ${HEADERS} ${BENCHMARK_SRC})
 target_compile_options(AutoTest PRIVATE -O2 -DDEBUG)
 target_link_libraries(AutoTest PRIVATE Threads::Threads)
+target_link_libraries(AutoTest PRIVATE ${Boost_LIBRARIES} ${MPI_LIBRARIES})
 
 # Sequential Tree
 add_test(NAME SeqTreeSmall0_ord3 COMMAND ./AutoTest 3 1 Seq small_0.case)

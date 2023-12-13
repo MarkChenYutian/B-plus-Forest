@@ -1,0 +1,128 @@
+TESTCASE: Baseline x1
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 24.4489MQPS in 40.9016ms, prep in 0.00150ms, del in  0.26110
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 19.9856MQPS in 50.0361ms, prep in 0.00150ms, del in  0.25870
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 18.8030MQPS in 53.1830ms, prep in 0.00140ms, del in  0.27150
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 7.62110MQPS in 131.2153ms, prep in 0.00150ms, del in  4.06760
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 6.41080MQPS in 155.9875ms, prep in 0.00210ms, del in  6.94340
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 5.76470MQPS in 173.4697ms, prep in 0.00250ms, del in  7.39230
+Average MQPS:13.83901
+TESTCASE: CoarseGrain x1
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 20.6037MQPS in 48.5350ms, prep in 0.00230ms, del in  0.47920
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 18.4566MQPS in 54.1811ms, prep in 0.00230ms, del in  0.47080
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 16.3401MQPS in 61.1992ms, prep in 0.00180ms, del in  0.46960
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 7.25100MQPS in 137.9124ms, prep in 0.00260ms, del in  4.76840
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 5.55270MQPS in 180.0941ms, prep in 0.00230ms, del in  6.48550
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 5.38680MQPS in 185.6395ms, prep in 0.00230ms, del in  6.68950
+Average MQPS:12.26514
+TESTCASE: CoarseGrain x2
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 7.48560MQPS in 133.5890ms, prep in 0.00220ms, del in  0.42330
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 6.62940MQPS in 150.8431ms, prep in 0.00190ms, del in  0.42120
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 5.80270MQPS in 172.3343ms, prep in 0.00220ms, del in  0.49640
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 4.70090MQPS in 212.7244ms, prep in 0.00240ms, del in  4.25610
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 3.86940MQPS in 258.4385ms, prep in 0.00300ms, del in  6.42000
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 3.78590MQPS in 264.1364ms, prep in 0.00310ms, del in  7.03090
+Average MQPS:5.378990
+TESTCASE: CoarseGrain x4
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 7.14790MQPS in 139.9017ms, prep in 0.00220ms, del in  0.44340
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 6.25510MQPS in 159.8702ms, prep in 0.00180ms, del in  0.45750
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 6.03520MQPS in 165.6959ms, prep in 0.00170ms, del in  0.44240
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 3.14100MQPS in 318.3742ms, prep in 0.00220ms, del in  4.88960
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.68870MQPS in 371.9297ms, prep in 0.00210ms, del in  5.69750
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.56230MQPS in 390.2740ms, prep in 0.00230ms, del in  6.57360
+Average MQPS:4.638340
+TESTCASE: CoarseGrain x6
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 5.93950MQPS in 168.3637ms, prep in 0.00140ms, del in  0.47650
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 5.40760MQPS in 184.9243ms, prep in 0.00190ms, del in  0.45670
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 5.20570MQPS in 192.0963ms, prep in 0.00220ms, del in  0.46160
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.63620MQPS in 379.3279ms, prep in 0.00190ms, del in  4.27100
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.22320MQPS in 449.8088ms, prep in 0.00210ms, del in  5.54390
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.08100MQPS in 480.5447ms, prep in 0.00210ms, del in  6.72180
+Average MQPS:3.915540
+TESTCASE: CoarseGrain x8
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 4.96710MQPS in 201.3251ms, prep in 0.00190ms, del in  0.48990
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.50100MQPS in 222.1712ms, prep in 0.00190ms, del in  0.46590
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.28490MQPS in 233.3751ms, prep in 0.00180ms, del in  0.53090
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.54520MQPS in 392.9038ms, prep in 0.00220ms, del in  4.41660
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.09240MQPS in 477.9132ms, prep in 0.00210ms, del in  6.41100
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 1.97520MQPS in 506.2889ms, prep in 0.00240ms, del in  6.36120
+Average MQPS:3.394300
+TESTCASE: FineGrain x1
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 11.3135MQPS in 88.3901ms, prep in 0.00170ms, del in  0.50900
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 10.4442MQPS in 95.7468ms, prep in 0.00160ms, del in  0.47540
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 10.0148MQPS in 99.8525ms, prep in 0.00160ms, del in  0.47690
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 5.01540MQPS in 199.3861ms, prep in 0.00190ms, del in  4.21970
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 4.35640MQPS in 229.5479ms, prep in 0.00230ms, del in  6.24420
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 4.12990MQPS in 242.1366ms, prep in 0.00150ms, del in  6.35550
+Average MQPS:7.545690
+TESTCASE: FineGrain x2
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 6.37570MQPS in 156.8465ms, prep in 0.00130ms, del in  0.54690
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 6.71800MQPS in 148.8542ms, prep in 0.00160ms, del in  0.52010
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 6.95060MQPS in 143.8716ms, prep in 0.00160ms, del in  0.56040
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.91920MQPS in 342.5570ms, prep in 0.00220ms, del in  4.00330
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 3.26860MQPS in 305.9437ms, prep in 0.00180ms, del in  5.01580
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 3.22780MQPS in 309.8115ms, prep in 0.00210ms, del in  6.89040
+Average MQPS:4.909980
+TESTCASE: FineGrain x4
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 3.88060MQPS in 257.6903ms, prep in 0.00130ms, del in  0.57440
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.39600MQPS in 227.4812ms, prep in 0.00140ms, del in  0.57010
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.81130MQPS in 207.8425ms, prep in 0.00140ms, del in  0.57970
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 0.81140MQPS in 1232.3674ms, prep in 0.00170ms, del in  4.73970
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 0.79000MQPS in 1265.7504ms, prep in 0.00190ms, del in  7.03150
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 0.79490MQPS in 1257.9602ms, prep in 0.00170ms, del in  7.72360
+Average MQPS:2.580730
+TESTCASE: FineGrain x6
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 3.75970MQPS in 265.9768ms, prep in 0.00150ms, del in  0.60360
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.17960MQPS in 239.2596ms, prep in 0.00160ms, del in  0.58930
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.35600MQPS in 229.5698ms, prep in 0.00160ms, del in  0.60250
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 0.60850MQPS in 1643.5201ms, prep in 0.00150ms, del in  5.62340
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 0.60900MQPS in 1641.9536ms, prep in 0.00210ms, del in  6.91720
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 0.59880MQPS in 1669.9567ms, prep in 0.00220ms, del in  8.76060
+Average MQPS:2.351930
+TESTCASE: FineGrain x8
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 3.70360MQPS in 270.0092ms, prep in 0.00160ms, del in  0.58800
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.10080MQPS in 243.8565ms, prep in 0.00150ms, del in  0.63570
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.35000MQPS in 229.8852ms, prep in 0.00170ms, del in  0.63320
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 0.61680MQPS in 1621.1885ms, prep in 0.00190ms, del in  5.78140
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 0.56790MQPS in 1760.7355ms, prep in 0.00210ms, del in  8.28670
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 0.56860MQPS in 1758.7440ms, prep in 0.00190ms, del in  8.03900
+Average MQPS:2.317950
+TESTCASE: LockFree x1
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 4.92600MQPS in 203.0060ms, prep in 0.13630ms, del in  0.72580
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.34980MQPS in 229.8943ms, prep in 0.13480ms, del in  0.68830
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.05460MQPS in 246.6338ms, prep in 0.13150ms, del in  0.73300
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.91730MQPS in 342.7836ms, prep in 0.28070ms, del in  5.45830
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.68860MQPS in 371.9372ms, prep in 0.18270ms, del in  6.38710
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.49760MQPS in 400.3824ms, prep in 0.22070ms, del in  9.14770
+Average MQPS:3.572320
+TESTCASE: LockFree x2
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 4.76580MQPS in 209.8270ms, prep in 0.20410ms, del in  0.81770
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.78890MQPS in 208.8184ms, prep in 0.18160ms, del in  0.78680
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 4.28110MQPS in 233.5845ms, prep in 0.17900ms, del in  0.82470
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 3.24540MQPS in 308.1306ms, prep in 0.36440ms, del in  4.85950
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.99870MQPS in 333.4773ms, prep in 0.42350ms, del in  6.34840
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.97990MQPS in 335.5831ms, prep in 0.28670ms, del in  7.36390
+Average MQPS:3.843290
+TESTCASE: LockFree x4
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 4.11470MQPS in 243.0326ms, prep in 0.28200ms, del in  0.97270
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 4.19770MQPS in 238.2265ms, prep in 0.26860ms, del in  1.06110
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 3.83770MQPS in 260.5751ms, prep in 0.27890ms, del in  0.96510
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.92500MQPS in 341.8819ms, prep in 0.41260ms, del in  5.25070
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.86200MQPS in 349.4055ms, prep in 0.54690ms, del in  6.69830
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.72900MQPS in 366.4374ms, prep in 0.53010ms, del in  7.47400
+Average MQPS:3.444330
+TESTCASE: LockFree x6
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 3.29770MQPS in 303.2396ms, prep in 0.34010ms, del in  1.08090
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 3.23200MQPS in 309.4061ms, prep in 0.32870ms, del in  1.03890
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 3.21150MQPS in 311.3835ms, prep in 0.34370ms, del in  1.12850
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 2.32070MQPS in 430.8975ms, prep in 0.45730ms, del in  4.97030
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 2.32570MQPS in 429.9857ms, prep in 0.51450ms, del in  5.60620
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 2.26290MQPS in 441.9189ms, prep in 0.53700ms, del in  6.64510
+Average MQPS:2.775070
+TESTCASE: LockFree x8
+[1;32mCase 0	 ../test/B_megaGet_0.case[0m		Benchmark: 2.55800MQPS in 390.9263ms, prep in 0.40810ms, del in  1.23450
+[1;32mCase 1	 ../test/B_megaGet_1.case[0m		Benchmark: 2.49840MQPS in 400.2551ms, prep in 0.40470ms, del in  1.25380
+[1;32mCase 2	 ../test/B_megaGet_2.case[0m		Benchmark: 2.43000MQPS in 411.5242ms, prep in 0.39600ms, del in  1.22270
+[1;32mCase 3	 ../test/B_megaMix_0.case[0m		Benchmark: 1.81090MQPS in 552.2166ms, prep in 0.52850ms, del in  4.84030
+[1;32mCase 4	 ../test/B_megaMix_1.case[0m		Benchmark: 1.77980MQPS in 561.8457ms, prep in 0.59160ms, del in  6.06360
+[1;32mCase 5	 ../test/B_megaMix_2.case[0m		Benchmark: 1.75040MQPS in 571.2823ms, prep in 0.62290ms, del in  7.74910
+Average MQPS:2.137930
