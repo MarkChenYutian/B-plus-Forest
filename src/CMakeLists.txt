@@ -167,6 +167,16 @@ set_target_properties(distributeTreeDebug PROPERTIES
  LINK_FLAGS "-fsanitize=undefined ${MPI_LINK_FLAGS}"
 )
 
+# Enable UndefinedBehaviorSanitizer (UBSan)
+# No address sanitizer since the OpenMPI itself has memory leak, and will cause a lot of false positive.
+add_executable(distributeTreeRelease ${HEADERS} ${DISTRI_TREE_SRC})
+target_link_libraries(distributeTreeRelease ${MPI_LIBRARIES})
+target_compile_options(distributeTreeRelease PRIVATE -Ofast)
+set_target_properties(distributeTreeRelease PROPERTIES
+ COMPILE_FLAGS "${MPI_COMPILE_FLAGS}"
+ LINK_FLAGS "${MPI_LINK_FLAGS}"
+)
+
 ################ BENCHMARKING #########################
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")

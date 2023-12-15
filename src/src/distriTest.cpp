@@ -8,6 +8,10 @@ int main(int argc, char *argv[]) {
         std::string s = "../test/B_megaGet_" + std::to_string(i) + ".case";
         Cases.push_back(s);
     }
+    for (int i = 0; i < 3; i ++) {
+        std::string s = "../test/B_megaMix_" + std::to_string(i) + ".case";
+        Cases.push_back(s);
+    }
 
     int mpi_thread_support;
     int init_status = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpi_thread_support);
