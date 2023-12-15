@@ -126,9 +126,12 @@ def plotMQPS(result, caseSubstr, tree_types, save_to, ticks=[1, 2, 4, 6, 8], col
         benchmarkMQPS_down = [b-s for b, s in zip(benchmarkMQPS, selected_cases["std_Benchmark(MQPS)"])]
         plt.plot(ticks, benchmarkMQPS, label=tree_type, color=color[i])
         plt.fill_between(ticks, benchmarkMQPS_down, benchmarkMQPS_up, color=color[i], alpha=.15)
-        
+    
+    plt.xlabel("Number of Threads")
+    plt.ylabel("Throughput (MQPS)")
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend()
+    plt.tight_layout()
     plt.savefig(save_to)
     plt.close()
 

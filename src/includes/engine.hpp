@@ -500,6 +500,9 @@ class DistributeEngine : public IEngine<Tree::DistriBPlusTree> {
         }
 
         void Run() override {
+            int rank;
+            MPI_Comm_rank(world, &rank);
+
             double average_qps = 0;
             for (size_t i = 0; i < this->paths.size(); i ++) {
                 auto testCase = this->paths[i];
@@ -534,19 +537,25 @@ class DistributeEngine : public IEngine<Tree::DistriBPlusTree> {
 
                 float estimated_qps = static_cast<float>(this->currCase.size()) / run_seconds / 1000000.0f;
                 average_qps += estimated_qps;
-
-                std::cout << "\r\033[1;32mCase " << i << "\t " << testCase << "\033[0m" << "\t";
+                
+                if (rank == 0) {
+                    std::cout << "\r\033[1;32mCase " << i << "\t " << testCase << "\033[0m" << "\t";
+                }
                 double run_ms = run_seconds * 1000,
                         build_ms = build_seconds * 1000,
                         del_ms = del_seconds * 1000;
-
-                std::cout << "\tBenchmark: " <<
-                          toFixedLenStr(estimated_qps, 4) << "MQPS in " <<
-                          toFixedLenStr(run_ms       , 4) << "ms, prep in " <<
-                          toFixedLenStr(build_ms     , 4) << "ms, del in  " <<
-                          toFixedLenStr(del_ms       , 4) << std::endl;
+                
+                if (rank == 0) {
+                    std::cout << "\tBenchmark: " <<
+                        toFixedLenStr(estimated_qps, 4) << "MQPS in " <<
+                        toFixedLenStr(run_ms       , 4) << "ms, prep in " <<
+                        toFixedLenStr(build_ms     , 4) << "ms, del in  " <<
+                        toFixedLenStr(del_ms       , 4) << std::endl;
+                }
             }
-            std::cout << "Average MQPS:" << toFixedLenStr(average_qps / this->paths.size(), 5) << std::endl;
+            if (rank == 0) {
+                std::cout << "Average MQPS:" << toFixedLenStr(average_qps / this->paths.size(), 5) << std::endl;
+            }
         }
 
     private:
